@@ -51,13 +51,14 @@
 {% endcall %}
 {% endmacro %}
 
-{% macro ventas(datos, titulo='Ventas recientes') %}
+{% macro ventas(datos, titulo='Ventas recientes', filas=None) %}
+{% set registros = filas if filas is not none else datos.ventas %}
 {% call panel(titulo, 'Últimos movimientos registrados') %}
   <div class="tabla-wrap">
     <table class="tabla">
       <thead><tr><th>Folio</th><th>Cliente</th><th>Total</th><th>Hora</th></tr></thead>
       <tbody>
-        {% for v in datos.ventas %}
+        {% for v in registros %}
         <tr><td class="mono">#{{ v.id }}</td><td>{{ v.cliente }}</td><td class="fuerte">{{ v.total }}</td><td>{{ v.fecha }}</td></tr>
         {% else %}<tr><td colspan="4" class="vacio">No hay ventas registradas todavía.</td></tr>{% endfor %}
       </tbody>

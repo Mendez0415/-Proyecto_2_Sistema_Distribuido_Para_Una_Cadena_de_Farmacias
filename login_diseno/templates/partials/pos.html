@@ -1,0 +1,141 @@
+{% from 'partials/_macros.html' import panel %}
+
+<section class="pos-layout">
+  <div class="pos-formulario">
+    {% call panel('Registrar venta', 'Se descuenta automáticamente del inventario') %}
+    <form method="post" action="{{ url_for('nueva_venta') }}" id="form-venta" class="venta-form">
+      <div class="campo">
+        <label for="id_medicamento">Medicamento</label>
+        <select id="id_medicamento" name="id_medicamento" required>
+          <option value="">Selecciona un medicamento…</option>
+          {% for p in datos.disponibles %}
+          <option value="{{ p.id }}" data-precio="{{ p.precio_num }}" data-stock="{{ p.existencia }}" data-receta="{{ '1' if p.receta else '0' }}">
+            {{ p.comercial }} — {{ p.nombre }} ({{ p.existencia }} pz)
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="campo-doble">
+        <div class="campo">
+          <label for="cantidad">Cantidad</label>
+          <input type="number" id="cantidad" name="cantidad" min="1" value="1" required />
+        </div>
+        <div class="campo">
+          <label>Precio unitario</label>
+          <div class="campo-valor" id="precio-unitario">—</div>
+        </div>
+      </div>
+
+      <p class="stock-linea" id="stock-linea">Selecciona un producto para ver su disponibilidad.</p>
+
+      <div class="campo">
+        <label for="id_cliente">Cliente (opcional)</label>
+        <select id="id_cliente" name="id_cliente">
+          <option value="">Mostrador / sin cliente</option>
+          {% for c in datos.clientes %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="receta-campos" id="receta-campos">
+        <div class="receta-titulo"><svg class="ico"><use href="#i-receipt" /></svg> Este medicamento requiere receta</div>
+        <div class="campo-doble">
+          <div class="campo"><label for="nombre_medico">Nombre del médico</label><input type="text" id="nombre_medico" name="nombre_medico" placeholder="Dra. Ana Ruiz" /></div>
+          <div class="campo"><label for="cedula_medico">Cédula profesional</label><input type="text" id="cedula_medico" name="cedula_medico" placeholder="1234567" /></div>
+        </div>
+        <p class="receta-nota">Indica también un cliente en el campo anterior para poder registrar la receta.</p>
+      </div>
+
+      <div class="venta-total">
+        <span>Total de la venta</span>
+        <strong id="total-venta">$0.00</strong>
+      </div>
+      <button type="submit" class="btn-venta" id="btn-venta"><svg class="ico"><use href="#i-cart" /></svg> Confirmar venta</button>
+    </form>
+    {% endcall %}
+  </div>
+
+  <div class="pos-disponibles">
+    {% call panel('Medicamentos disponibles', 'Existencias actuales en ' ~ u.sucursal, datos.disponibles|length ~ ' productos') %}
+    <ul class="productos-venta">
+      {% for p in datos.disponibles %}
+      <li>
+        <span class="producto-icono"><svg class="ico"><use href="#i-pill" /></svg></span>
+        <div class="producto-info"><strong>{{ p.comercial }}</strong><small>{{ p.nombre }}</small></div>
+        <div class="producto-stock"><strong>{{ p.existencia }}</strong><small>disponibles</small></div>
+        <div class="producto-precio">{{ p.precio }}{% if p.receta %}<span class="chip-receta">Receta</span>{% endif %}</div>
+      </li>
+      {% else %}<li class="vacio">No hay productos con existencias.</li>{% endfor %}
+    </ul>
+    {% endcall %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-cab"><div><h3>Mis compras</h3><p>Ventas registradas desde tu puesto</p></div><span class="panel-extra">Tu historial</span></div>
+  <div class="tabla-wrap">
+    <table class="tabla">
+      <thead><tr><th>Folio</th><th>Cliente</th><th>Total</th><th>Fecha</th></tr></thead>
+      <tbody>
+        {% for v in datos.mis_ventas %}
+        <tr><td class="mono">#{{ v.id }}</td><td>{{ v.cliente }}</td><td class="fuerte">{{ v.total }}</td><td>{{ v.fecha }}</td></tr>
+        {% else %}<tr><td colspan="4" class="vacio">Todavía no has registrado ventas.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if perfil.puede_gestionar %}
+<section class="panel">
+  <div class="panel-cab"><div><h3>Ventas de la sucursal</h3><p>Todas las ventas registradas en {{ u.sucursal }}</p></div></div>
+  <div class="tabla-wrap">
+    <table class="tabla">
+      <thead><tr><th>Folio</th><th>Cliente</th><th>Total</th><th>Fecha</th></tr></thead>
+      <tbody>
+        {% for v in datos.ventas %}
+        <tr><td class="mono">#{{ v.id }}</td><td>{{ v.cliente }}</td><td class="fuerte">{{ v.total }}</td><td>{{ v.fecha }}</td></tr>
+        {% else %}<tr><td colspan="4" class="vacio">No hay ventas registradas.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<script>
+  const selProducto = document.getElementById('id_medicamento');
+  const cantInput = document.getElementById('cantidad');
+  const precioTxt = document.getElementById('precio-unitario');
+  const totalTxt = document.getElementById('total-venta');
+  const stockTxt = document.getElementById('stock-linea');
+  const recetaCampos = document.getElementById('receta-campos');
+  const btnVenta = document.getElementById('btn-venta');
+
+  function actualizarVenta() {
+    const opcion = selProducto.options[selProducto.selectedIndex];
+    if (!opcion || !opcion.value) {
+      precioTxt.textContent = '—';
+      totalTxt.textContent = '$0.00';
+      stockTxt.textContent = 'Selecciona un producto para ver su disponibilidad.';
+      stockTxt.className = 'stock-linea';
+      recetaCampos.classList.remove('visible');
+      btnVenta.disabled = false;
+      return;
+    }
+    const precio = Number(opcion.dataset.precio);
+    const stock = Number(opcion.dataset.stock);
+    const cantidad = Math.max(1, Number(cantInput.value) || 1);
+    precioTxt.textContent = '$' + precio.toFixed(2);
+    totalTxt.textContent = '$' + (precio * cantidad).toFixed(2);
+    recetaCampos.classList.toggle('visible', opcion.dataset.receta === '1');
+    const sinStock = cantidad > stock;
+    stockTxt.textContent = sinStock
+      ? 'Solo hay ' + stock + ' unidades disponibles.'
+      : stock + ' unidades disponibles · se descontarán ' + cantidad + '.';
+    stockTxt.className = 'stock-linea ' + (sinStock ? 'sin-stock' : 'con-stock');
+    btnVenta.disabled = sinStock;
+  }
+
+  selProducto.addEventListener('change', actualizarVenta);
+  cantInput.addEventListener('input', actualizarVenta);
+  actualizarVenta();
+</script>

@@ -42,6 +42,31 @@ class Nodo:
         finally:
             conn.close()
 
+    def transaccion(self, operaciones):
+        """Varias sentencias en una sola transacción.
+
+        Cada operación es (sql, params, alias). Si alias no es None se guarda la
+        fila devuelta por RETURNING, o {'rowcount': n} para sentencias sin retorno.
+        """
+        conn = self.conectar()
+        resultados = {}
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                for sql, params, alias in operaciones:
+                    cur.execute(sql, params)
+                    if alias:
+                        resultados[alias] = (
+                            dict(cur.fetchone()) if cur.description
+                            else {"rowcount": cur.rowcount}
+                        )
+            conn.commit()
+            return resultados
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
 
 def todos_los_nodos():
     return [Nodo(n) for n in NODOS]

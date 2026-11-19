@@ -64,8 +64,8 @@ SQL_CATALOGO = """
 """
 
 SQL_CLIENTES = """
-    SELECT nombre, correo, telefono, fecha_registro
-    FROM clientes ORDER BY fecha_registro DESC LIMIT 6
+    SELECT id_cliente, nombre, correo, telefono, fecha_registro
+    FROM clientes ORDER BY fecha_registro DESC LIMIT 20
 """
 
 SQL_EMPLEADOS = """
@@ -82,6 +82,39 @@ SQL_RECETAS = """
     JOIN clientes c ON c.id_cliente = r.id_cliente
     JOIN medicamentos m ON m.id_medicamento = r.id_medicamento
     ORDER BY r.fecha_emision DESC LIMIT 6
+"""
+
+SQL_USUARIOS = """
+    SELECT e.id_empleado, e.nombre, e.puesto, e.correo,
+           c.usuario, c.activo, c.id_sucursal, r.nombre_rol AS rol
+    FROM empleados e
+    JOIN credenciales c ON c.id_empleado = e.id_empleado
+    LEFT JOIN rol r ON r.id_empleado = e.id_empleado AND r.activo
+    ORDER BY e.nombre
+"""
+
+SQL_USUARIO_OBJETIVO = """
+    SELECT e.id_empleado, e.nombre, r.nombre_rol AS rol
+    FROM empleados e
+    LEFT JOIN rol r ON r.id_empleado = e.id_empleado AND r.activo
+    WHERE e.id_empleado = %s
+"""
+
+SQL_DISPONIBLES = """
+    SELECT i.id_medicamento, m.nombre, m.nombre_comercial AS comercial,
+           m.precio_unitario AS precio, i.existencia, i.stock_minimo AS minimo,
+           m.requiere_receta
+    FROM inventarios i JOIN medicamentos m ON m.id_medicamento = i.id_medicamento
+    WHERE i.existencia > 0
+    ORDER BY m.nombre
+"""
+
+SQL_MIS_VENTAS = """
+    SELECT v.id_venta, v.fecha_hora, v.total,
+           COALESCE(c.nombre, 'Mostrador') AS cliente
+    FROM ventas v LEFT JOIN clientes c ON c.id_cliente = v.id_cliente
+    WHERE v.id_empleado = %s
+    ORDER BY v.fecha_hora DESC LIMIT 8
 """
 
 SQL_TENDENCIA = """
@@ -118,6 +151,12 @@ def _fecha_corta(valor):
 def _demo():
     """Estructura base con datos de ejemplo (se usa si la BD no responde)."""
     tendencia = [4200, 5100, 3850, 6200, 5400, 7350, 4680]
+    demo_ventas = [
+        {"id": "1042", "cliente": "María López", "total": "$485.00", "fecha": "Hoy 10:24"},
+        {"id": "1041", "cliente": "Mostrador", "total": "$210.50", "fecha": "Hoy 10:02"},
+        {"id": "1040", "cliente": "Juan Castillo", "total": "$735.00", "fecha": "Hoy 09:47"},
+        {"id": "1039", "cliente": "Mostrador", "total": "$98.00", "fecha": "Hoy 09:15"},
+    ]
     return {
         "origen": "demo",
         "indicadores": {
@@ -147,12 +186,8 @@ def _demo():
             {"operacion": "INSERT", "tabla": "detalle_venta", "fecha": "Hoy 09:15"},
             {"operacion": "UPDATE", "tabla": "inventarios", "fecha": "Ayer 18:03"},
         ],
-        "ventas": [
-            {"id": "1042", "cliente": "María López", "total": "$485.00", "fecha": "Hoy 10:24"},
-            {"id": "1041", "cliente": "Mostrador", "total": "$210.50", "fecha": "Hoy 10:02"},
-            {"id": "1040", "cliente": "Juan Castillo", "total": "$735.00", "fecha": "Hoy 09:47"},
-            {"id": "1039", "cliente": "Mostrador", "total": "$98.00", "fecha": "Hoy 09:15"},
-        ],
+        "ventas": demo_ventas,
+        "mis_ventas": demo_ventas,
         "inventario": [
             {"nombre": "Azitromicina 500 mg", "comercial": "Zitromax", "existencia": 5, "minimo": 8, "precio": "$145.00"},
             {"nombre": "Ciprofloxacino 500 mg", "comercial": "Ciproxina", "existencia": 6, "minimo": 8, "precio": "$120.00"},
@@ -168,8 +203,8 @@ def _demo():
             {"nombre": "Paracetamol 500 mg", "comercial": "Tempra", "precio": "$35.00", "receta": False, "minimo": 20},
         ],
         "clientes": [
-            {"nombre": "María López", "correo": "maria.lopez@correo.com", "telefono": "993-410-0001", "fecha": "12/03/2026"},
-            {"nombre": "Juan Castillo", "correo": "juan.castillo@correo.com", "telefono": "993-410-0002", "fecha": "10/03/2026"},
+            {"id": 10001, "nombre": "María López", "correo": "maria.lopez@correo.com", "telefono": "993-410-0001", "fecha": "12/03/2026"},
+            {"id": 10002, "nombre": "Juan Castillo", "correo": "juan.castillo@correo.com", "telefono": "993-410-0002", "fecha": "10/03/2026"},
         ],
         "empleados": [
             {"nombre": "Carlos Pérez", "puesto": "Cajero", "correo": "operador.norte@yza.com", "rol": "Operador"},
@@ -177,6 +212,15 @@ def _demo():
         ],
         "recetas": [],
         "nodos": [],
+        "disponibles": [
+            {"id": 1, "nombre": "Paracetamol 500 mg", "comercial": "Tempra", "precio": "$35.00", "precio_num": 35.0, "existencia": 50, "minimo": 20, "receta": False},
+            {"id": 2, "nombre": "Ibuprofeno 400 mg", "comercial": "Advil", "precio": "$52.50", "precio_num": 52.5, "existencia": 35, "minimo": 15, "receta": False},
+            {"id": 4, "nombre": "Azitromicina 500 mg", "comercial": "Zitromax", "precio": "$145.00", "precio_num": 145.0, "existencia": 5, "minimo": 8, "receta": True},
+        ],
+        "usuarios": [
+            {"id": 10001, "nombre": "Carlos Pérez", "puesto": "Cajero", "correo": "operador.norte@yza.com", "usuario": "operador_norte", "rol": "Operador", "activo": True, "sucursal": "Norte"},
+            {"id": 10002, "nombre": "Laura Méndez", "puesto": "Gerente", "correo": "gerente.norte@yza.com", "usuario": "gerente_norte", "rol": "Gerente", "activo": True, "sucursal": "Norte"},
+        ],
     }
 
 
@@ -218,10 +262,10 @@ def _cargar_tendencia(datos, nodos):
 
 
 def _cargar_lista(datos, nodos, sql, clave, transformar, limite=8, orden=None,
-                  conservar_demo=True):
+                  conservar_demo=True, params=None):
     filas_totales = []
     for nodo in nodos:
-        filas = _consultar(nodo, sql)
+        filas = _consultar(nodo, sql, params)
         if filas:
             filas_totales.extend(transformar(fila) for fila in filas)
     if not filas_totales:
@@ -266,7 +310,8 @@ def _transformar_catalogo(fila):
 
 
 def _transformar_cliente(fila):
-    return {"nombre": fila["nombre"], "correo": fila["correo"] or "—",
+    return {"id": _num(fila["id_cliente"]), "nombre": fila["nombre"],
+            "correo": fila["correo"] or "—",
             "telefono": fila["telefono"] or "—", "fecha": _fecha_corta(fila["fecha_registro"])}
 
 
@@ -278,6 +323,23 @@ def _transformar_empleado(fila):
 def _transformar_receta(fila):
     return {"cliente": fila["cliente"], "medico": fila["medico"],
             "medicamento": fila["medicamento"], "fecha": _fecha(fila["fecha"])}
+
+
+def _transformar_disponible(fila):
+    return {"id": _num(fila["id_medicamento"]), "nombre": fila["nombre"],
+            "comercial": fila["comercial"], "precio": _money(fila["precio"]),
+            "precio_num": round(float(fila["precio"] or 0), 2),
+            "existencia": _num(fila["existencia"]), "minimo": _num(fila["minimo"]),
+            "receta": bool(fila["requiere_receta"])}
+
+
+def _transformar_usuario(fila):
+    sucursales = {1: "Norte", 2: "Centro", 3: "Sur"}
+    return {"id": _num(fila["id_empleado"]), "nombre": fila["nombre"],
+            "puesto": fila["puesto"], "correo": fila["correo"] or "—",
+            "usuario": fila["usuario"], "rol": fila["rol"] or "Sin rol",
+            "activo": bool(fila["activo"]),
+            "sucursal": sucursales.get(_num(fila["id_sucursal"]), "—")}
 
 
 def _cargar_nodos(datos):
@@ -301,7 +363,7 @@ def _cargar_nodos(datos):
     datos["nodos"] = nodos
 
 
-def obtener_datos(rol, sucursal):
+def obtener_datos(rol, sucursal, id_empleado=None):
     """Devuelve el diccionario de datos para las plantillas."""
     datos = _demo()
     try:
@@ -330,12 +392,19 @@ def obtener_datos(rol, sucursal):
                       conservar_demo=conservar_demo)
         _cargar_lista(datos, nodos, SQL_CATALOGO, "catalogo", _transformar_catalogo, 10,
                       orden=lambda x: x["nombre"], conservar_demo=conservar_demo)
-        _cargar_lista(datos, nodos, SQL_CLIENTES, "clientes", _transformar_cliente, 6,
+        _cargar_lista(datos, nodos, SQL_CLIENTES, "clientes", _transformar_cliente, 20,
                       conservar_demo=conservar_demo)
         _cargar_lista(datos, nodos, SQL_EMPLEADOS, "empleados", _transformar_empleado, 8,
                       conservar_demo=conservar_demo)
         _cargar_lista(datos, nodos, SQL_RECETAS, "recetas", _transformar_receta, 6,
                       conservar_demo=conservar_demo)
+        _cargar_lista(datos, nodos, SQL_DISPONIBLES, "disponibles", _transformar_disponible,
+                      50, orden=lambda x: x["nombre"], conservar_demo=conservar_demo)
+        _cargar_lista(datos, nodos, SQL_USUARIOS, "usuarios", _transformar_usuario, 30,
+                      conservar_demo=conservar_demo)
+        if id_empleado:
+            _cargar_lista(datos, nodos, SQL_MIS_VENTAS, "mis_ventas", _transformar_venta, 8,
+                          conservar_demo=conservar_demo, params=(id_empleado,))
         if rol == "Administrador":
             _cargar_nodos(datos)
     except Exception:

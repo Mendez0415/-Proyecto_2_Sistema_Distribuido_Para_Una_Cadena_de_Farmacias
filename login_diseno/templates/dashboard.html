@@ -80,9 +80,6 @@
             <strong>{{ u.nombre }}</strong>
             <span>{{ u.puesto or 'Empleado' }} · {{ u.sucursal }}</span>
           </div>
-          <a href="{{ url_for('logout') }}" class="icon-btn salir-btn" title="Cerrar sesión">
-            <svg class="ico"><use href="#i-logout" /></svg>
-          </a>
         </div>
       </aside>
 
@@ -98,11 +95,29 @@
             <button class="icon-btn" aria-label="Notificaciones">
               <svg class="ico"><use href="#i-bell" /></svg><span class="punto"></span>
             </button>
-            <div class="avatar avatar-top">{{ u.nombre[0] }}</div>
+            <div class="perfil-menu">
+              <button class="avatar avatar-top" id="perfil-btn" aria-label="Abrir menú de perfil" aria-expanded="false">{{ u.nombre[0] }}</button>
+              <div class="perfil-dropdown" id="perfil-dropdown">
+                <div class="pd-cab">
+                  <span class="avatar">{{ u.nombre[0] }}</span>
+                  <div><strong>{{ u.nombre }}</strong><small>{{ u.usuario }}</small></div>
+                </div>
+                <div class="pd-rol">{{ u.puesto or 'Empleado' }} · {{ u.sucursal }}</div>
+                <button class="pd-item" id="cerrar-sesion-btn">
+                  <svg class="ico"><use href="#i-logout" /></svg> Cerrar sesión
+                </button>
+              </div>
+            </div>
           </div>
         </header>
 
         <main class="content">
+          {% with mensajes = get_flashed_messages(with_categories=true) %}
+            {% for categoria, mensaje in mensajes %}
+            <div class="alert {{ categoria }}">{{ mensaje }}</div>
+            {% endfor %}
+          {% endwith %}
+
           <div class="page-head">
             <div>
               <h1>{{ perfil.titulo if seccion.slug == 'resumen' else seccion.titulo }}</h1>
@@ -123,6 +138,19 @@
       </div>
     </div>
 
+    <!-- Confirmación de cierre de sesión -->
+    <div class="modal" id="modal-salir" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+      <div class="modal-caja">
+        <span class="modal-icono"><svg class="ico"><use href="#i-logout" /></svg></span>
+        <h2 id="modal-titulo">¿Cerrar sesión?</h2>
+        <p>Se cerrará tu sesión actual y volverás a la pantalla de inicio de sesión.</p>
+        <div class="modal-acciones">
+          <button type="button" class="btn-cancelar" id="cancelar-salir">Cancelar</button>
+          <a href="{{ url_for('logout') }}" class="btn-aceptar">Aceptar</a>
+        </div>
+      </div>
+    </div>
+
     <script>
       const sidebar = document.getElementById('sidebar');
       const overlay = document.getElementById('overlay');
@@ -130,6 +158,30 @@
       const cerrar = () => { sidebar.classList.remove('abierta'); overlay.classList.remove('visible'); };
       document.getElementById('menu-btn').addEventListener('click', abrir);
       overlay.addEventListener('click', cerrar);
+
+      const perfilBtn = document.getElementById('perfil-btn');
+      const perfilMenu = document.getElementById('perfil-dropdown');
+      const alternarPerfil = (forzar) => {
+        const abierto = forzar !== undefined ? forzar : !perfilMenu.classList.contains('abierto');
+        perfilMenu.classList.toggle('abierto', abierto);
+        perfilBtn.setAttribute('aria-expanded', String(abierto));
+      };
+      perfilBtn.addEventListener('click', (e) => { e.stopPropagation(); alternarPerfil(); });
+      document.addEventListener('click', (e) => {
+        if (!perfilMenu.contains(e.target)) alternarPerfil(false);
+      });
+
+      const modal = document.getElementById('modal-salir');
+      const mostrarModal = (visible) => modal.classList.toggle('visible', visible);
+      document.getElementById('cerrar-sesion-btn').addEventListener('click', () => {
+        alternarPerfil(false);
+        mostrarModal(true);
+      });
+      document.getElementById('cancelar-salir').addEventListener('click', () => mostrarModal(false));
+      modal.addEventListener('click', (e) => { if (e.target === modal) mostrarModal(false); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { mostrarModal(false); alternarPerfil(false); }
+      });
     </script>
   </body>
 </html>

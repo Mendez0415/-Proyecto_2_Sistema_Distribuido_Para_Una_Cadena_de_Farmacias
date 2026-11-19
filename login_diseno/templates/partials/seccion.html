@@ -10,7 +10,10 @@
   <span class="chip-leer">{{ perfil.etiqueta }}</span>
 </div>
 
-{% if seccion.slug == 'red' %}
+{% if seccion.slug == 'ventas' and perfil.puede_vender %}
+  {% include 'partials/pos.html' %}
+
+{% elif seccion.slug == 'red' %}
 <div class="nodos">
   {% for n in datos.nodos %}
   <article class="nodo">
@@ -53,7 +56,7 @@
     <table class="tabla">
       <thead><tr><th>Folio</th><th>Cliente</th><th>Total</th><th>Fecha</th></tr></thead>
       <tbody>
-        {% for v in datos.ventas %}
+        {% for v in (datos.mis_ventas if seccion.slug == 'historial' else datos.ventas) %}
         <tr><td class="mono">#{{ v.id }}</td><td>{{ v.cliente }}</td><td class="fuerte">{{ v.total }}</td><td>{{ v.fecha }}</td></tr>
         {% else %}<tr><td colspan="4" class="vacio">No hay ventas registradas.</td></tr>{% endfor %}
       </tbody>
@@ -78,14 +81,56 @@
 
 {% elif seccion.slug in ['empleados', 'usuarios'] %}
 <section class="panel">
-  <div class="panel-cab"><div><h3>{{ seccion.titulo }}</h3><p>Puestos y roles asignados</p></div></div>
+  <div class="panel-cab">
+    <div><h3>{{ seccion.titulo }}</h3><p>Puestos, roles y estado de acceso</p></div>
+    {% if perfil.puede_gestionar %}<span class="panel-extra">Gestión habilitada</span>{% endif %}
+  </div>
+  {% if perfil.puede_gestionar %}
+  <div class="aviso-jerarquia">
+    <svg class="ico"><use href="#i-shield" /></svg>
+    <p>{% if u.rol == 'Administrador' %}Puedes asignar y dar de baja cualquier rol en los 3 nodos. No puedes modificar tu propio usuario.{% else %}Solo puedes gestionar usuarios de rango menor (Operador, Auditor y Consulta) de tu sucursal. No puedes modificar a gerentes ni al administrador.{% endif %}</p>
+  </div>
+  {% endif %}
   <div class="tabla-wrap">
     <table class="tabla">
-      <thead><tr><th>Nombre</th><th>Puesto</th><th>Rol</th><th>Correo</th></tr></thead>
+      <thead><tr>
+        <th>Nombre</th><th>Usuario</th><th>Sucursal</th><th>Rol</th><th>Estado</th>
+        {% if perfil.puede_gestionar %}<th>Acciones</th>{% endif %}
+      </tr></thead>
       <tbody>
-        {% for e in datos.empleados %}
-        <tr><td class="fuerte">{{ e.nombre }}</td><td>{{ e.puesto }}</td><td><span class="chip-rol">{{ e.rol }}</span></td><td>{{ e.correo }}</td></tr>
-        {% else %}<tr><td colspan="4" class="vacio">No hay empleados registrados.</td></tr>{% endfor %}
+        {% for e in datos.usuarios %}
+        <tr>
+          <td class="fuerte">{{ e.nombre }}<small class="celda-nota">{{ e.puesto }}</small></td>
+          <td class="mono">{{ e.usuario }}</td>
+          <td>{{ e.sucursal }}</td>
+          <td><span class="chip-rol">{{ e.rol }}</span></td>
+          <td>{% if e.activo %}<span class="chip-libre">Activo</span>{% else %}<span class="chip-critico">Baja</span>{% endif %}</td>
+          {% if perfil.puede_gestionar %}
+          <td>
+            <div class="acciones-usuario">
+              <form method="post" action="{{ url_for('asignar_rol', id_empleado=e.id) }}" class="form-rol">
+                <input type="hidden" name="sucursal" value="{{ e.sucursal }}" />
+                <select name="nombre_rol" aria-label="Rol para {{ e.nombre }}">
+                  {% for rol in roles_asignables %}<option value="{{ rol }}" {% if e.rol == rol %}selected{% endif %}>{{ rol }}</option>{% endfor %}
+                </select>
+                <button type="submit" class="mini-btn primario">Asignar</button>
+              </form>
+              {% if e.activo %}
+              <form method="post" action="{{ url_for('dar_baja', id_empleado=e.id) }}">
+                <input type="hidden" name="sucursal" value="{{ e.sucursal }}" />
+                <button type="submit" class="mini-btn peligro">Dar de baja</button>
+              </form>
+              {% else %}
+              <form method="post" action="{{ url_for('dar_alta', id_empleado=e.id) }}">
+                <input type="hidden" name="sucursal" value="{{ e.sucursal }}" />
+                <button type="submit" class="mini-btn">Activar</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+        {% else %}<tr><td colspan="{{ 6 if perfil.puede_gestionar else 5 }}" class="vacio">No hay usuarios registrados.</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>

@@ -447,6 +447,189 @@ body.app::before {
   .hero-arte { display: none; }
   .hero-pos { padding: 22px; }
 }
+/* ---------- Avisos flash ---------- */
+.alert.exito {
+  color: #0a5f4c;
+  background: #dff7ee;
+  border: 1px solid #a9e6d5;
+}
+.alert.error {
+  color: #fff;
+  background: rgba(220, 53, 69, .85);
+  border: 1px solid rgba(255, 255, 255, .35);
+}
+
+/* ---------- Menú de perfil (topbar) ---------- */
+.perfil-menu { position: relative; }
+.avatar-top { border: 0; cursor: pointer; font-family: inherit; }
+.avatar-top:hover { filter: brightness(1.05); }
+.perfil-dropdown {
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 40;
+  width: 230px; padding: 8px;
+  border-radius: 15px; border: 1px solid var(--yz-line);
+  background: #fff; box-shadow: 0 18px 44px rgba(13,43,46,.16);
+  opacity: 0; visibility: hidden; transform: translateY(-6px);
+  transition: opacity .16s, transform .16s, visibility .16s;
+}
+.perfil-dropdown.abierto { opacity: 1; visibility: visible; transform: translateY(0); }
+.pd-cab { display: flex; align-items: center; gap: 10px; padding: 10px 8px; }
+.pd-cab .avatar { width: 34px; height: 34px; }
+.pd-cab strong { display: block; font-size: .78rem; }
+.pd-cab small { display: block; font-size: .66rem; color: var(--yz-mutable); }
+.pd-rol {
+  margin: 0 4px 8px; padding: 8px 10px; border-radius: 9px;
+  background: #f3faf7; color: var(--yz-teal-osc); font-size: .66rem; font-weight: 600;
+}
+.pd-item {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 10px 11px; border: 0; border-radius: 10px;
+  background: transparent; color: #c94f62;
+  font: inherit; font-size: .76rem; font-weight: 600; text-align: left; cursor: pointer;
+}
+.pd-item:hover { background: #fff0f2; }
+.pd-item .ico { width: 16px; height: 16px; }
+
+/* ---------- Modal de confirmación ---------- */
+.modal {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center; padding: 20px;
+  background: rgba(13,43,46,.55);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  opacity: 0; visibility: hidden; transition: opacity .18s, visibility .18s;
+}
+.modal.visible { opacity: 1; visibility: visible; }
+.modal-caja {
+  width: 100%; max-width: 400px; padding: 28px;
+  border-radius: 22px; background: #fff;
+  box-shadow: 0 30px 70px rgba(0,25,35,.35);
+  transform: translateY(10px) scale(.98); transition: transform .18s;
+  text-align: center;
+}
+.modal.visible .modal-caja { transform: translateY(0) scale(1); }
+.modal-icono {
+  width: 54px; height: 54px; margin: 0 auto 14px;
+  display: grid; place-items: center; border-radius: 17px;
+  color: #c94f62; background: #fff0f2;
+}
+.modal-icono .ico { width: 26px; height: 26px; }
+.modal-caja h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.modal-caja p { margin: 0; font-size: .78rem; line-height: 1.6; color: var(--yz-mutable); }
+.modal-acciones { display: flex; gap: 10px; margin-top: 22px; }
+.btn-cancelar, .btn-aceptar {
+  flex: 1; padding: 10px 12px; border-radius: 11px;
+  font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer;
+}
+.btn-cancelar { border: 1px solid var(--yz-line); background: #fff; color: var(--yz-tinta); }
+.btn-cancelar:hover { background: #f4f8f7; }
+.btn-aceptar {
+  border: 1px solid rgba(255,255,255,.3); text-decoration: none;
+  color: #fff; background: linear-gradient(180deg, #ee6b78, #c94f62);
+}
+.btn-aceptar:hover { filter: brightness(1.05); color: #fff; }
+
+/* ---------- Gestión de usuarios ---------- */
+.aviso-jerarquia {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-bottom: 16px; padding: 12px 14px;
+  border-radius: 12px; background: #f0f7ff; color: #285f9e;
+}
+.aviso-jerarquia .ico { width: 17px; height: 17px; margin-top: 2px; }
+.aviso-jerarquia p { margin: 0; font-size: .72rem; line-height: 1.5; }
+.celda-nota { display: block; margin-top: 2px; font-size: .64rem; color: var(--yz-mutable); font-weight: 400; }
+.acciones-usuario { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.form-rol { display: flex; align-items: center; gap: 5px; }
+.form-rol select {
+  padding: 6px 8px; border: 1px solid var(--yz-line); border-radius: 8px;
+  background: #fff; color: var(--yz-tinta); font: inherit; font-size: .68rem;
+}
+.mini-btn {
+  padding: 6px 9px; border: 1px solid var(--yz-line); border-radius: 8px;
+  background: #fff; color: var(--yz-tinta);
+  font: inherit; font-size: .66rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.mini-btn:hover { background: #f4f8f7; }
+.mini-btn.primario { border-color: var(--yz-teal); color: var(--yz-teal-osc); background: #eaf7f4; }
+.mini-btn.peligro { border-color: #f3c8cf; color: #c94f62; background: #fff4f5; }
+
+/* ---------- Punto de venta ---------- */
+.pos-layout { display: grid; grid-template-columns: 1.05fr 1fr; gap: 20px; }
+.pos-layout > div { min-width: 0; }
+.pos-layout .panel { height: 100%; }
+.venta-form .campo { margin-bottom: 14px; }
+.campo label {
+  display: block; margin-bottom: 5px;
+  color: var(--yz-tinta); font-size: .68rem; font-weight: 600;
+}
+.campo select, .campo input {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--yz-line);
+  border-radius: 10px; background: #fbfdfc; color: var(--yz-tinta);
+  font: inherit; font-size: .76rem; box-shadow: none;
+}
+.campo select:focus, .campo input:focus {
+  outline: none; border-color: var(--yz-teal); box-shadow: 0 0 0 4px rgba(25,195,165,.14);
+}
+.campo-doble { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.campo-valor {
+  padding: 10px 12px; border-radius: 10px; background: #eaf7f4;
+  color: var(--yz-teal-osc); font-size: .82rem; font-weight: 700;
+}
+.stock-linea { margin: -4px 0 14px; font-size: .68rem; color: var(--yz-mutable); }
+.stock-linea.con-stock { color: #12946f; }
+.stock-linea.sin-stock { color: #c94f62; font-weight: 600; }
+.receta-campos {
+  display: none; margin: 4px 0 14px; padding: 14px;
+  border: 1px solid #ded6fa; border-radius: 13px; background: #f8f5ff;
+}
+.receta-campos.visible { display: block; }
+.receta-titulo {
+  display: flex; align-items: center; gap: 7px; margin-bottom: 12px;
+  color: #6d50be; font-size: .72rem; font-weight: 700;
+}
+.receta-titulo .ico { width: 15px; height: 15px; }
+.receta-nota { margin: 0; font-size: .65rem; color: #7c6ba8; }
+.venta-total {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 18px 0 14px; padding: 14px 16px; border-radius: 13px;
+  background: linear-gradient(100deg, #0a4f59, #0e8f87); color: #fff;
+}
+.venta-total span { font-size: .76rem; opacity: .85; }
+.venta-total strong { font-size: 1.3rem; }
+.btn-venta {
+  width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px; border: 1px solid rgba(255,255,255,.3); border-radius: 12px;
+  color: #fff; background: linear-gradient(180deg, #25d6b6, #0e9c92);
+  font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer;
+}
+.btn-venta:hover { filter: brightness(1.06); }
+.btn-venta:disabled { opacity: .5; cursor: not-allowed; }
+.btn-venta .ico { width: 17px; height: 17px; }
+.productos-venta { list-style: none; margin: 0; padding: 0; max-height: 430px; overflow-y: auto; }
+.productos-venta li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid #f0f5f3;
+}
+.productos-venta li:last-child { border-bottom: 0; }
+.producto-icono {
+  width: 32px; height: 32px; flex: none; border-radius: 10px;
+  display: grid; place-items: center; color: var(--yz-teal-osc); background: #e2f8f3;
+}
+.producto-icono .ico { width: 16px; height: 16px; }
+.producto-info { flex: 1; min-width: 0; }
+.producto-info strong { display: block; font-size: .76rem; }
+.producto-info small { display: block; font-size: .64rem; color: var(--yz-mutable); }
+.producto-stock { text-align: center; }
+.producto-stock strong { display: block; font-size: .82rem; color: var(--yz-teal-osc); }
+.producto-stock small { display: block; font-size: .6rem; color: var(--yz-mutable); }
+.producto-precio { text-align: right; font-size: .76rem; font-weight: 700; }
+.producto-precio .chip-receta { display: block; margin-top: 4px; font-size: .56rem; }
+
+@media (max-width: 1180px) {
+  .pos-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .campo-doble { grid-template-columns: 1fr; }
+  .modal-acciones { flex-direction: column-reverse; }
+}
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }

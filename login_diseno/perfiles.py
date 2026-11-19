@@ -7,6 +7,23 @@ Cada perfil define:
   - etiqueta/aviso: información de alcance que se muestra en la interfaz
 """
 
+# Jerarquía de roles: un usuario solo puede gestionar a otro de menor rango.
+JERARQUIA = {"Consulta": 0, "Auditor": 0, "Operador": 0, "Gerente": 1, "Administrador": 2}
+TODOS_LOS_ROLES = ["Administrador", "Gerente", "Operador", "Auditor", "Consulta"]
+
+
+def puede_gestionar(rol_actual, rol_objetivo):
+    """True cuando rol_actual puede asignar/borrar el rol_objetivo."""
+    actual = JERARQUIA.get(rol_actual)
+    objetivo = JERARQUIA.get(rol_objetivo)
+    return actual is not None and objetivo is not None and objetivo < actual
+
+
+def roles_asignables(rol_actual):
+    """Roles que el usuario puede asignar (nunca de su rango o superior)."""
+    return [r for r in TODOS_LOS_ROLES if puede_gestionar(rol_actual, r)]
+
+
 PERFILES = {
     "Administrador": {
         "nombre": "Administrador",
@@ -15,6 +32,8 @@ PERFILES = {
         "subtitulo": "Visión global de la red de farmacias Yza",
         "etiqueta": "Acceso total",
         "aviso": "Tienes visibilidad de los 3 nodos y de la configuración del sistema.",
+        "puede_gestionar": True,
+        "puede_vender": False,
         "menu": [
             ("resumen", "Resumen general", "grid"),
             ("red", "Red y sucursales", "store"),
@@ -36,7 +55,9 @@ PERFILES = {
         "titulo": "Resumen de sucursal",
         "subtitulo": "Indicadores y operación de tu sucursal",
         "etiqueta": "Gestión de sucursal",
-        "aviso": "Tu información se limita al nodo de tu sucursal.",
+        "aviso": "Tu información se limita al nodo de tu sucursal. Puedes gestionar roles de menor rango y registrar ventas.",
+        "puede_gestionar": True,
+        "puede_vender": True,
         "menu": [
             ("resumen", "Resumen", "grid"),
             ("ventas", "Ventas", "chart"),
@@ -59,18 +80,20 @@ PERFILES = {
         "subtitulo": "Operación diaria de caja y mostrador",
         "etiqueta": "Operación",
         "aviso": "Acceso a ventas, catálogo y clientes de tu sucursal.",
+        "puede_gestionar": False,
+        "puede_vender": True,
         "menu": [
             ("resumen", "Mi turno", "grid"),
             ("ventas", "Nueva venta", "cart"),
             ("catalogo", "Buscar medicamentos", "search"),
             ("clientes", "Clientes", "users"),
             ("recetas", "Recetas", "receipt"),
-            ("historial", "Mis ventas", "clock"),
+            ("historial", "Mis compras", "clock"),
         ],
         "acciones": [
             ("Nueva venta", "ventas", "cart"),
             ("Buscar producto", "catalogo", "search"),
-            ("Mis ventas", "historial", "clock"),
+            ("Mis compras", "historial", "clock"),
         ],
     },
     "Auditor": {
@@ -80,6 +103,8 @@ PERFILES = {
         "subtitulo": "Trazabilidad, inventarios y control de cambios",
         "etiqueta": "Solo control",
         "aviso": "Consultas de lectura sobre movimientos y registros.",
+        "puede_gestionar": False,
+        "puede_vender": False,
         "menu": [
             ("resumen", "Panel de auditoría", "shield"),
             ("movimientos", "Movimientos", "clipboard"),
@@ -101,6 +126,8 @@ PERFILES = {
         "subtitulo": "Información de medicamentos y disponibilidad",
         "etiqueta": "Solo lectura",
         "aviso": "Tu perfil permite consultar información sin modificar registros.",
+        "puede_gestionar": False,
+        "puede_vender": False,
         "menu": [
             ("resumen", "Catálogo", "grid"),
             ("inventario", "Consultar inventario", "pill"),
@@ -131,7 +158,7 @@ SECCIONES = {
     "catalogo": ("Buscar medicamentos", "Catálogo de medicamentos disponibles."),
     "movimientos": ("Movimientos", "Historial de movimientos registrados por auditoría."),
     "alertas": ("Alertas de stock", "Productos con existencias en o bajo el mínimo."),
-    "historial": ("Mis ventas", "Ventas recientes registradas desde tu puesto."),
+    "historial": ("Mis compras", "Ventas registradas desde tu puesto de trabajo."),
     "ayuda": ("Ayuda", "Guía rápida de uso del sistema."),
 }
 
