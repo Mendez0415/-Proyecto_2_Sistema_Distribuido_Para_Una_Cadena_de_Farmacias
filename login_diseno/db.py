@@ -70,3 +70,31 @@ class Nodo:
 
 def todos_los_nodos():
     return [Nodo(n) for n in NODOS]
+
+
+def transaccion_multinodo(nombres, accion):
+    """Ejecuta accion(cursores) en varios nodos como una sola operación lógica.
+
+    Abre TODAS las conexiones primero (si un nodo no responde no se toca ninguno),
+    hace COMMIT en todos al final y ROLLBACK en todos si algo falla.
+    `accion` recibe un dict {nombre_nodo: cursor}.
+    """
+    conexiones = {}
+    try:
+        for nombre in nombres:
+            conexiones[nombre] = Nodo(nombre).conectar()
+        cursores = {
+            nombre: conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            for nombre, conn in conexiones.items()
+        }
+        resultado = accion(cursores)
+        for conn in conexiones.values():
+            conn.commit()
+        return resultado
+    except Exception:
+        for conn in conexiones.values():
+            conn.rollback()
+        raise
+    finally:
+        for conn in conexiones.values():
+            conn.close()

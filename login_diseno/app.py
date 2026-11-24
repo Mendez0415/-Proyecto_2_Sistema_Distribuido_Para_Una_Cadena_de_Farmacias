@@ -1,8 +1,10 @@
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-from werkzeug.security import check_password_hash
-from db import Nodo, todos_los_nodos
+from psycopg2 import errors as pg_errors
+from werkzeug.security import check_password_hash, generate_password_hash
+from db import Nodo, todos_los_nodos, transaccion_multinodo
 from datos_dashboard import SQL_USUARIO_OBJETIVO, obtener_datos
 from perfiles import obtener_seccion, perfil_de, puede_gestionar, roles_asignables
 
@@ -13,6 +15,37 @@ app.jinja_env.filters["money"] = lambda v: "${:,.2f}".format(float(v or 0))
 
 SUCURSALES = {1: "Norte", 2: "Centro", 3: "Sur"}
 SUCURSALES_ID = {"Norte": 1, "Centro": 2, "Sur": 3}
+
+PUESTOS = ["Gerente", "Farmaceutico", "Cajero", "Almacenista"]
+
+SQL_NUEVO_USUARIO = """
+    WITH e AS (
+        INSERT INTO empleados (nombre, correo, puesto) VALUES (%s, %s, %s)
+        RETURNING id_empleado
+    ), r AS (
+        INSERT INTO rol (id_empleado, nombre_rol) SELECT id_empleado, %s FROM e
+    )
+    INSERT INTO credenciales (id_empleado, usuario, contrasena_hash)
+    SELECT id_empleado, %s, %s FROM e
+    RETURNING id_empleado
+"""
+SQL_TICKET = """
+    SELECT v.id_venta, v.id_empleado, v.fecha_hora, v.total,
+           s.nombre AS sucursal, s.direccion, s.ciudad, s.telefono,
+           e.nombre AS cajero, COALESCE(c.nombre, 'Mostrador') AS cliente
+    FROM ventas v
+    JOIN sucursales s ON s.id_sucursal = v.id_sucursal
+    JOIN empleados e ON e.id_empleado = v.id_empleado
+    LEFT JOIN clientes c ON c.id_cliente = v.id_cliente
+    WHERE v.id_venta = %s
+"""
+
+SQL_TICKET_LINEAS = """
+    SELECT m.nombre_comercial AS comercial, m.nombre, d.cantidad,
+           d.precio_unitario AS precio, d.subtotal
+    FROM detalle_venta d JOIN medicamentos m ON m.id_medicamento = d.id_medicamento
+    WHERE d.id_venta = %s ORDER BY m.nombre
+"""
 
 SQL_USUARIO = """
     SELECT c.id_empleado, c.usuario, c.contrasena_hash, c.activo,
@@ -79,6 +112,15 @@ def _id_sucursal():
     u = session["usuario"]
     return u.get("id_sucursal") or SUCURSALES_ID.get(u.get("sucursal"))
 
+def _sucursal_por_folio(id_venta):
+    """Los folios son únicos por rango: Norte 1-9999, Centro 10000-19999, Sur 20000-29999."""
+    if 1 <= id_venta <= 9999:
+        return "Norte"
+    if 10000 <= id_venta <= 19999:
+        return "Centro"
+    if 20000 <= id_venta <= 29999:
+        return "Sur"
+    return None
 
 def _slug_gestion():
     return "usuarios" if session["usuario"].get("rol") == "Administrador" else "empleados"
@@ -167,6 +209,8 @@ def dashboard(slug="resumen"):
         datos=datos,
         hoy=datetime.now().strftime("%d/%m/%Y"),
         roles_asignables=roles_asignables(u.get("rol")),
+        sucursales=list(SUCURSALES_ID),
+        puestos=PUESTOS,
     )
 
 
@@ -306,14 +350,237 @@ def nueva_venta():
         flash("No se pudo descontar el stock. La venta no se registró.", "error")
         return redirect(url_for("dashboard", slug="ventas"))
 
-    flash(
-        "Venta #{} registrada: {} × {}. Stock actualizado.".format(
-            resultado["venta"]["id_venta"], cantidad, producto["comercial"]
-        ),
-        "exito",
-    )
-    return redirect(url_for("dashboard", slug="ventas"))
+    return redirect(url_for("ver_ticket", id_venta=resultado["venta"]["id_venta"], nueva=1))
 
+# ------------------------------------------------------------------
+# Inventario: agregar existencias y dar de alta productos nuevos
+# ------------------------------------------------------------------
+@app.route("/dashboard/inventario/agregar-stock", methods=["POST"])
+@login_requerido
+def agregar_stock():
+    u = session["usuario"]
+    destino = url_for("dashboard", slug="inventario")
+    if not perfil_de(u.get("rol")).get("puede_inventario"):
+        flash("Tu perfil no puede modificar el inventario.", "error")
+        return redirect(destino)
+
+    sucursal, error = _sucursal_objetivo()
+    if error:
+        flash(error, "error")
+        return redirect(destino)
+
+    try:
+        id_medicamento = int(request.form.get("id_medicamento", ""))
+        cantidad = int(request.form.get("cantidad", ""))
+    except (TypeError, ValueError):
+        flash("Indica una cantidad válida.", "error")
+        return redirect(destino)
+    if not 1 <= cantidad <= 100000:
+        flash("La cantidad debe estar entre 1 y 100,000.", "error")
+        return redirect(destino)
+
+    nodo = Nodo(sucursal)
+    id_sucursal = SUCURSALES_ID[sucursal]
+    try:
+        existentes = nodo.consultar(
+            "SELECT m.nombre_comercial AS comercial FROM inventarios i "
+            "JOIN medicamentos m ON m.id_medicamento = i.id_medicamento "
+            "WHERE i.id_sucursal = %s AND i.id_medicamento = %s",
+            (id_sucursal, id_medicamento),
+        )
+        if not existentes:
+            flash("Ese medicamento no está en el inventario de la sucursal.", "error")
+            return redirect(destino)
+        resultado = nodo.transaccion([(
+            "UPDATE inventarios SET existencia = existencia + %s, "
+            "fecha_actualizacion = CURRENT_DATE "
+            "WHERE id_sucursal = %s AND id_medicamento = %s RETURNING existencia",
+            (cantidad, id_sucursal, id_medicamento), "inv",
+        )])
+        flash(
+            "Se agregaron {} pz de {} en {}. Existencias actuales: {}.".format(
+                cantidad, existentes[0]["comercial"], sucursal, resultado["inv"]["existencia"]
+            ),
+            "exito",
+        )
+    except Exception:
+        flash("No se pudo actualizar el inventario. Intenta de nuevo.", "error")
+    return redirect(destino)
+
+
+@app.route("/dashboard/inventario/nuevo", methods=["POST"])
+@login_requerido
+def nuevo_producto():
+    u = session["usuario"]
+    destino = url_for("dashboard", slug="inventario")
+    if not perfil_de(u.get("rol")).get("puede_crear_producto"):
+        flash("Tu perfil no puede dar de alta productos nuevos.", "error")
+        return redirect(destino)
+
+    sucursal, error = _sucursal_objetivo()
+    if error:
+        flash(error, "error")
+        return redirect(destino)
+
+    nombre = request.form.get("nombre", "").strip()
+    comercial = request.form.get("nombre_comercial", "").strip()
+    if not nombre or not comercial:
+        flash("Escribe el nombre del medicamento y su nombre comercial.", "error")
+        return redirect(destino)
+    try:
+        id_categoria = int(request.form.get("id_categoria", ""))
+        id_proveedor = int(request.form.get("id_proveedor", ""))
+        precio = Decimal(request.form.get("precio", "").strip()).quantize(Decimal("0.01"))
+        minimo = int(request.form.get("stock_minimo", ""))
+        existencia = int(request.form.get("existencia", ""))
+    except (TypeError, ValueError, InvalidOperation):
+        flash("Revisa los datos: categoría, proveedor, precio y cantidades deben ser válidos.", "error")
+        return redirect(destino)
+    if precio <= 0 or minimo < 0 or existencia < 0:
+        flash("El precio debe ser mayor a cero y las cantidades no pueden ser negativas.", "error")
+        return redirect(destino)
+    requiere_receta = request.form.get("requiere_receta") == "on"
+
+    def accion(cursores):
+        # El catálogo debe ser idéntico en los 3 nodos: mismo id en cada uno.
+        nuevo_id = 0
+        for cur in cursores.values():
+            cur.execute(
+                "SELECT 1 FROM medicamentos WHERE lower(nombre) = lower(%s) "
+                "AND lower(nombre_comercial) = lower(%s)", (nombre, comercial))
+            if cur.fetchone():
+                raise ValueError("Ese medicamento ya existe en el catálogo.")
+            cur.execute("SELECT COALESCE(max(id_medicamento), 0) AS m FROM medicamentos")
+            nuevo_id = max(nuevo_id, cur.fetchone()["m"] + 1)
+        for nombre_nodo, cur in cursores.items():
+            cur.execute(
+                "INSERT INTO medicamentos (id_medicamento, id_categoria, id_proveedor, nombre, "
+                "nombre_comercial, precio_unitario, requiere_receta, stock_minimo) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (nuevo_id, id_categoria, id_proveedor, nombre, comercial,
+                 precio, requiere_receta, minimo))
+            cur.execute(
+                "INSERT INTO inventarios (id_medicamento, existencia, stock_minimo) "
+                "VALUES (%s, %s, %s)",
+                (nuevo_id, existencia if nombre_nodo == sucursal else 0, minimo))
+            cur.execute(
+                "SELECT setval(pg_get_serial_sequence('medicamentos', 'id_medicamento'), "
+                "(SELECT max(id_medicamento) FROM medicamentos))")
+        return nuevo_id
+
+    try:
+        transaccion_multinodo(list(SUCURSALES_ID), accion)
+        flash(
+            "Producto '{}' agregado al catálogo de las 3 sucursales con {} pz en {}.".format(
+                comercial, existencia, sucursal),
+            "exito",
+        )
+    except ValueError as e:
+        flash(str(e), "error")
+    except Exception:
+        flash("No se pudo agregar el producto. Para darlo de alta deben responder los 3 nodos.", "error")
+    return redirect(destino)
+
+@app.route("/dashboard/usuarios/nuevo", methods=["POST"])
+@login_requerido
+def nuevo_usuario():
+    u = session["usuario"]
+    destino = url_for("dashboard", slug=_slug_gestion())
+    if not perfil_de(u.get("rol")).get("puede_gestionar"):
+        flash("Tu perfil no puede agregar usuarios.", "error")
+        return redirect(destino)
+
+    sucursal, error = _sucursal_objetivo()
+    if error:
+        flash(error, "error")
+        return redirect(destino)
+
+    nombre = request.form.get("nombre", "").strip()
+    correo = request.form.get("correo", "").strip() or None
+    puesto = request.form.get("puesto", "").strip()
+    rol = request.form.get("nombre_rol", "").strip()
+    usuario = request.form.get("usuario", "").strip()
+    clave = request.form.get("clave", "")
+    clave2 = request.form.get("clave2", "")
+
+    if not nombre:
+        flash("Escribe el nombre completo.", "error")
+    elif puesto not in PUESTOS:
+        flash("Selecciona un puesto válido.", "error")
+    elif rol not in roles_asignables(u.get("rol")):
+        flash("No tienes permiso para asignar ese rol.", "error")
+    elif len(usuario) < 4 or " " in usuario:
+        flash("El usuario debe tener al menos 4 caracteres y no llevar espacios.", "error")
+    elif len(clave) < 8:
+        flash("La contraseña debe tener al menos 8 caracteres.", "error")
+    elif clave != clave2:
+        flash("Las contraseñas no coinciden.", "error")
+    else:
+        existente, hubo_error = buscar_usuario(usuario)
+        if existente:
+            flash("Ese usuario ya existe, elige otro.", "error")
+        elif hubo_error:
+            flash("No se pudo verificar el usuario en todas las sucursales. Intenta de nuevo.", "error")
+        else:
+            try:
+                Nodo(sucursal).transaccion([(
+                    SQL_NUEVO_USUARIO,
+                    (nombre, correo, puesto, rol, usuario, generate_password_hash(clave)),
+                    "nuevo",
+                )])
+                flash("Usuario '{}' creado en {} con rol {}.".format(usuario, sucursal, rol), "exito")
+            except pg_errors.UniqueViolation:
+                flash("Ese correo ya está registrado en la sucursal.", "error")
+            except Exception:
+                flash("No se pudo crear el usuario. Intenta de nuevo.", "error")
+    return redirect(destino)
+
+# ------------------------------------------------------------------
+# Ticket de venta
+# ------------------------------------------------------------------
+@app.route("/dashboard/ventas/<int:id_venta>/ticket")
+@login_requerido
+def ver_ticket(id_venta):
+    u = session["usuario"]
+    perfil = perfil_de(u.get("rol"))
+    if not any(slug in ("ventas", "historial") for slug, _, _ in perfil["menu"]):
+        flash("Tu perfil no puede consultar tickets.", "error")
+        return redirect(url_for("dashboard"))
+
+    sucursal = _sucursal_por_folio(id_venta)
+    if not sucursal or (u.get("rol") != "Administrador" and sucursal != u.get("sucursal")):
+        flash("Ese ticket no existe en tu sucursal.", "error")
+        return redirect(url_for("dashboard"))
+
+    try:
+        nodo = Nodo(sucursal)
+        ventas = nodo.consultar(SQL_TICKET, (id_venta,))
+        lineas = nodo.consultar(SQL_TICKET_LINEAS, (id_venta,)) if ventas else []
+    except Exception:
+        flash("No se pudo consultar el ticket. Intenta de nuevo.", "error")
+        return redirect(url_for("dashboard"))
+
+    if not ventas or (u.get("rol") == "Operador" and ventas[0]["id_empleado"] != u["id_empleado"]):
+        flash("Ese ticket no existe o no es de tus ventas.", "error")
+        return redirect(url_for("dashboard"))
+
+    slugs = [slug for slug, _, _ in perfil["menu"]]
+    if request.args.get("nueva"):
+        volver = url_for("dashboard", slug="ventas")
+    elif "historial" in slugs:
+        volver = url_for("dashboard", slug="historial")
+    elif "ventas" in slugs:
+        volver = url_for("dashboard", slug="ventas")
+    else:
+        volver = url_for("dashboard")
+    return render_template(
+        "ticket.html",
+        v=ventas[0],
+        lineas=lineas,
+        piezas=sum(int(l["cantidad"]) for l in lineas),
+        nueva=bool(request.args.get("nueva")),
+        volver=volver,
+    )
 
 # ------------------------------------------------------------------
 # Gestión de roles y usuarios ( Administrador / Gerente )

@@ -633,3 +633,47 @@ body.app::before {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ---------- KPIs con enlace ---------- */
+.kpi-click { transition: transform .15s, box-shadow .15s, border-color .15s; }
+.kpi-click:hover { transform: translateY(-2px); border-color: var(--yz-teal); box-shadow: 0 16px 34px rgba(13, 43, 46, .10); }
+.kpi-enlace { position: absolute; inset: 0; z-index: 2; border-radius: var(--yz-radio); }
+
+/* ---------- Botón de panel ---------- */
+.btn-panel {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 8px 14px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .3);
+  color: #fff; background: linear-gradient(180deg, #25d6b6, #0e9c92);
+  font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.btn-panel:hover { filter: brightness(1.06); color: #fff; }
+.btn-panel .ico { width: 15px; height: 15px; }
+.lista-alertas + .btn-panel { width: 100%; margin-top: 14px; padding: 10px 14px; }
+
+/* ---------- Inventario: formularios y ventanas ---------- */
+.btn-primario {
+  flex: 1; padding: 10px 12px; border-radius: 11px; border: 1px solid rgba(255, 255, 255, .3);
+  color: #fff; background: linear-gradient(180deg, #25d6b6, #0e9c92);
+  font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer;
+}
+.btn-primario:hover { filter: brightness(1.06); }
+
+.form-stock { display: flex; align-items: center; gap: 5px; }
+.form-stock input[type="number"] {
+  width: 76px; padding: 6px 8px; border: 1px solid var(--yz-line); border-radius: 8px;
+  background: #fff; color: var(--yz-tinta); font: inherit; font-size: .68rem;
+}
+.form-stock input[type="number"]:focus { outline: none; border-color: var(--yz-teal); box-shadow: 0 0 0 3px rgba(25, 195, 165, .14); }
+
+.modal-caja.ancha { max-width: 560px; max-height: 92vh; overflow-y: auto; text-align: left; }
+.modal-caja.ancha h2 { text-align: left; }
+.form-modal { margin-top: 16px; }
+.form-modal .campo { margin-bottom: 12px; }
+.check-linea { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; font-size: .74rem; font-weight: 600; cursor: pointer; }
+.check-linea input { accent-color: var(--yz-teal); }
+.check-linea span { color: var(--yz-tinta); }
+.check-linea small { color: var(--yz-mutable); font-weight: 400; }
+
+/* ---------- Folio con enlace al ticket ---------- */
+.enlace-ticket { color: var(--yz-teal-osc); font-weight: 700; text-decoration: none; border-bottom: 1px dashed currentColor; }
+.enlace-ticket:hover { color: var(--yz-profundo); }

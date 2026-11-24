@@ -1,82 +1,121 @@
-{% macro kpi(icono, etiqueta, valor, pie, tono='teal', flecha='up') %}
-<article class="kpi">
-  <div class="kpi-cab">
-    <span class="kpi-icono {{ tono }}"><svg class="ico"><use href="#i-{{ icono }}" /></svg></span>
-    <span class="kpi-pie {{ flecha if flecha else '' }}">
-      {% if flecha %}<svg class="ico"><use href="#i-arrow-{{ flecha }}" /></svg>{% endif %}{{ pie }}
-    </span>
-  </div>
-  <p>{{ etiqueta }}</p>
-  <h2>{{ valor }}</h2>
-</article>
-{% endmacro %}
+{% macro kpi(icono, etiqueta, valor, pie, tono='teal', flecha='up', enlace=None)
+%}
+<article class="kpi{{ ' kpi-click' if enlace else '' }}">
+  {% if enlace %}<a
+    class="kpi-enlace"
+    href="{{ url_for('dashboard', slug=enlace) }}"
+    aria-label="Ir a {{ etiqueta }}"
+  ></a
+  >{% endif %}
 
-{% macro panel(titulo, subtitulo='', extra='') %}
-<section class="panel">
-  <div class="panel-cab">
-    <div><h3>{{ titulo }}</h3>{% if subtitulo %}<p>{{ subtitulo }}</p>{% endif %}</div>
-    {% if extra %}<span class="panel-extra">{{ extra }}</span>{% endif %}
-  </div>
-  {{ caller() }}
-</section>
-{% endmacro %}
-
-{% macro tendencia(datos, titulo='Tendencia de ventas', subtitulo='Últimos 7 días') %}
-{% call panel(titulo, subtitulo, 'Semanal') %}
+  
+    <div class="kpi-cab">
+      <span class="kpi-icono {{ tono }}"
+        ><svg class="ico"><use href="#i-{{ icono }}" /></svg
+      ></span>
+      <span class="kpi-pie {{ flecha if flecha else '' }}">
+        {% if flecha %}<svg class="ico">
+          <use href="#i-arrow-{{ flecha }}" /></svg
+        >{% endif %}{{ pie }}
+      </span>
+    </div>
+    <p>{{ etiqueta }}</p>
+    <h2>{{ valor }}</h2>
+  </article>
+  {% endmacro %} {% macro panel(titulo, subtitulo='', extra='') %}
+  <section class="panel">
+    <div class="panel-cab">
+      <div>
+        <h3>{{ titulo }}</h3>
+        {% if subtitulo %}
+        <p>{{ subtitulo }}</p>
+        {% endif %}
+      </div>
+      {% if extra %}<span class="panel-extra">{{ extra }}</span>{% endif %}
+    </div>
+    {{ caller() }}
+  </section>
+  {% endmacro %} {% macro tendencia(datos, titulo='Tendencia de ventas',
+  subtitulo='Últimos 7 días') %} {% call panel(titulo, subtitulo, 'Semanal') %}
   <div class="grafica">
     {% for punto in datos.tendencia %}
     <div class="barra-grupo">
-      <div class="barra-pista"><div class="barra" style="height: {{ punto.altura }}%" title="${{ '%.2f'|format(punto.valor) }}"></div></div>
+      <div class="barra-pista">
+        <div
+          class="barra"
+          style="height: {{ punto.altura }}%"
+          title="${{ '%.2f'|format(punto.valor) }}"
+        ></div>
+      </div>
       <span>{{ punto.dia }}</span>
     </div>
     {% endfor %}
   </div>
-  {% if datos.tendencia_demo %}<p class="nota">Tendencia de referencia: aún no hay ventas registradas en los últimos días.</p>{% endif %}
-{% endcall %}
-{% endmacro %}
-
-{% macro alertas(datos, titulo='Alertas de inventario', subtitulo='Productos bajo el stock mínimo') %}
-{% call panel(titulo, subtitulo, datos.alertas|length ~ ' productos') %}
-  {% if datos.alertas %}
+  {% if datos.tendencia_demo %}
+  <p class="nota">
+    Tendencia de referencia: aún no hay ventas registradas en los últimos días.
+  </p>
+  {% endif %} {% endcall %} {% endmacro %} {% macro alertas(datos,
+  titulo='Alertas de inventario', subtitulo='Productos bajo el stock mínimo') %}
+  {% call panel(titulo, subtitulo, datos.alertas|length ~ ' productos') %} {% if
+  datos.alertas %}
   <ul class="lista-alertas">
     {% for a in datos.alertas %}
     <li>
       <span class="punto-alerta"></span>
-      <div><strong>{{ a.nombre }}</strong><small>Existencias: {{ a.existencia }} · Mínimo: {{ a.minimo }}</small></div>
-      <span class="chip-critico">Reponer</span>
+      <div>
+        <strong>{{ a.nombre }}</strong
+        ><small>Existencias: {{ a.existencia }} · Mínimo: {{ a.minimo }}</small>
+      </div>
     </li>
     {% endfor %}
   </ul>
-  {% else %}<p class="vacio">Sin alertas: todos los productos están sobre el mínimo.</p>{% endif %}
-{% endcall %}
-{% endmacro %}
-
-{% macro ventas(datos, titulo='Ventas recientes', filas=None) %}
-{% set registros = filas if filas is not none else datos.ventas %}
-{% call panel(titulo, 'Últimos movimientos registrados') %}
+  <a href="{{ url_for('dashboard', slug='inventario') }}" class="btn-panel"
+    ><svg class="ico"><use href="#i-box" /></svg> Ir al inventario</a
+  >
+  {% else %}
+  <p class="vacio">Sin alertas: todos los productos están sobre el mínimo.</p>
+  {% endif %} {% endcall %} {% endmacro %} {% macro ventas(datos, titulo='Ventas
+  recientes', filas=None) %} {% set registros = filas if filas is not none else
+  datos.ventas %} {% call panel(titulo, 'Últimos movimientos registrados') %}
   <div class="tabla-wrap">
     <table class="tabla">
-      <thead><tr><th>Folio</th><th>Cliente</th><th>Total</th><th>Hora</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Folio</th>
+          <th>Cliente</th>
+          <th>Total</th>
+          <th>Hora</th>
+        </tr>
+      </thead>
       <tbody>
         {% for v in registros %}
-        <tr><td class="mono">#{{ v.id }}</td><td>{{ v.cliente }}</td><td class="fuerte">{{ v.total }}</td><td>{{ v.fecha }}</td></tr>
-        {% else %}<tr><td colspan="4" class="vacio">No hay ventas registradas todavía.</td></tr>{% endfor %}
+        <tr>
+          <td class="mono"><a class="enlace-ticket" href="{{ url_for('ver_ticket', id_venta=v.id) }}" title="Ver ticket">#{{ v.id }}</a></td>
+          <td>{{ v.cliente }}</td>
+          <td class="fuerte">{{ v.total }}</td>
+          <td>{{ v.fecha }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="4" class="vacio">No hay ventas registradas todavía.</td>
+        </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
-{% endcall %}
-{% endmacro %}
-
-{% macro acciones(perfil) %}
-{% call panel('Accesos rápidos', 'Lo más usado por tu perfil') %}
+  {% endcall %} {% endmacro %} {% macro acciones(perfil) %} {% call
+  panel('Accesos rápidos', 'Lo más usado por tu perfil') %}
   <div class="acciones">
     {% for etiqueta, slug, icono in perfil.acciones %}
     <a href="{{ url_for('dashboard', slug=slug) }}" class="accion">
-      <span class="accion-icono"><svg class="ico"><use href="#i-{{ icono }}" /></svg></span>
+      <span class="accion-icono"
+        ><svg class="ico"><use href="#i-{{ icono }}" /></svg
+      ></span>
       <span>{{ etiqueta }}</span>
       <svg class="ico flecha"><use href="#i-arrow-up" /></svg>
     </a>
     {% endfor %}
   </div>
-{% endcall %}
-{% endmacro %}
+  {% endcall %} {% endmacro %}
+</article>

@@ -1,19 +1,28 @@
-{% from 'partials/_macros.html' import kpi, panel, tendencia, alertas, acciones %}
+{% from 'partials/_macros.html' import kpi, panel, tendencia, alertas, acciones
+%}
 
 <div class="kpis">
-  {{ kpi('chart', 'Ventas hoy (red)', datos.indicadores.ventas_hoy|money, '3 sucursales', 'teal', 'up') }}
-  {{ kpi('receipt', 'Pedidos hoy', datos.indicadores.pedidos_hoy, 'Global', 'blue', 'up') }}
-  {{ kpi('users', 'Empleados', datos.indicadores.empleados, 'En la red', 'morado', 'none') }}
-  {{ kpi('alert', 'Alertas de stock', datos.indicadores.alertas, 'Requieren atención', 'alerta', 'down') }}
+  {{ kpi('chart', 'Ventas hoy (red)', datos.indicadores.ventas_hoy|money, '3
+  sucursales', 'teal', 'up', 'ventas') }} {{ kpi('receipt', 'Pedidos hoy',
+  datos.indicadores.pedidos_hoy, 'Global', 'blue', 'up', 'ventas') }} {{
+  kpi('users', 'Empleados', datos.indicadores.empleados, 'En la red', 'morado',
+  'none', 'usuarios') }} {{ kpi('alert', 'Alertas de stock',
+  datos.indicadores.alertas, 'Requieren atención', 'alerta', 'down',
+  'inventario') }}
 </div>
 
-{% call panel('Estado de la red', 'Nodos distribuidos · replicación activa', '3 nodos') %}
+{% call panel('Estado de la red', 'Nodos distribuidos · replicación activa', '3
+nodos') %}
 <div class="nodos">
   {% for n in datos.nodos %}
   <article class="nodo">
     <div class="nodo-cab">
-      <span class="nodo-icono"><svg class="ico"><use href="#i-store" /></svg></span>
-      <span class="estado {{ 'ok' if n.estado == 'Operativo' else 'mal' }}"><span></span>{{ n.estado }}</span>
+      <span class="nodo-icono"
+        ><svg class="ico"><use href="#i-store" /></svg
+      ></span>
+      <span class="estado {{ 'ok' if n.estado == 'Operativo' else 'mal' }}"
+        ><span></span>{{ n.estado }}</span
+      >
     </div>
     <h4>Sucursal {{ n.nombre }}</h4>
     <div class="nodo-datos">
@@ -21,7 +30,9 @@
       <div><small>Productos</small><strong>{{ n.productos }}</strong></div>
       <div><small>Alertas</small><strong>{{ n.alertas }}</strong></div>
     </div>
-    <a href="{{ url_for('dashboard', slug='red') }}" class="nodo-link">Ver detalle →</a>
+    <a href="{{ url_for('dashboard', slug='red') }}" class="nodo-link"
+      >Ver detalle →</a
+    >
   </article>
   {% else %}
   <p class="vacio">No fue posible consultar el estado de los nodos.</p>
@@ -29,32 +40,20 @@
 </div>
 {% endcall %}
 
-<div class="rejilla-2 sesion">
-  {{ tendencia(datos) }}
-  {{ alertas(datos) }}
-</div>
+<div class="rejilla-2 sesion">{{ tendencia(datos) }} {{ alertas(datos) }}</div>
 
-<div class="rejilla-2 inversa">
-  {% call panel('Medicamentos más vendidos', 'Ranking por unidades en la red') %}
-  <ul class="ranking">
-    {% for p in datos.top %}
-    <li><span class="ranking-num">{{ loop.index }}</span><div class="ranking-nombre"><strong>{{ p.nombre }}</strong><small>{{ p.unidades }} unidades</small></div><span class="ranking-importe">{{ p.importe }}</span></li>
-    {% else %}<li class="vacio">Aún no hay ventas registradas.</li>{% endfor %}
-  </ul>
-  {% endcall %}
-
-  {% call panel('Bitácora de auditoría', 'Últimos cambios en la base de datos', 'En vivo') %}
-  <div class="tabla-wrap">
-    <table class="tabla">
-      <thead><tr><th>Operación</th><th>Tabla</th><th>Fecha</th></tr></thead>
-      <tbody>
-        {% for a in datos.actividad %}
-        <tr><td><span class="chip-op {{ a.operacion|lower }}">{{ a.operacion }}</span></td><td class="mono">{{ a.tabla }}</td><td>{{ a.fecha }}</td></tr>
-        {% else %}<tr><td colspan="3" class="vacio">Sin movimientos registrados.</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endcall %}
-</div>
-
-{{ acciones(perfil) }}
+{% call panel('Medicamentos más vendidos', 'Ranking por unidades en la red') %}
+<ul class="ranking">
+  {% for p in datos.top %}
+  <li>
+    <span class="ranking-num">{{ loop.index }}</span>
+    <div class="ranking-nombre">
+      <strong>{{ p.nombre }}</strong><small>{{ p.unidades }} unidades</small>
+    </div>
+    <span class="ranking-importe">{{ p.importe }}</span>
+  </li>
+  {% else %}
+  <li class="vacio">Aún no hay ventas registradas.</li>
+  {% endfor %}
+</ul>
+{% endcall %} {{ acciones(perfil) }}

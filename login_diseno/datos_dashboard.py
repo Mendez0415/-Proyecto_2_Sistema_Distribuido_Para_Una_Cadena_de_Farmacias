@@ -108,6 +108,24 @@ SQL_DISPONIBLES = """
     WHERE i.existencia > 0
     ORDER BY m.nombre
 """
+SQL_INVENTARIO_COMPLETO = """
+    SELECT i.id_medicamento, m.nombre, m.nombre_comercial AS comercial,
+           i.existencia, i.stock_minimo AS minimo, m.precio_unitario AS precio
+    FROM inventarios i JOIN medicamentos m ON m.id_medicamento = i.id_medicamento
+    ORDER BY m.nombre
+"""
+
+SQL_CATEGORIAS = "SELECT id_categoria AS id, nombre FROM categorias_medicamento ORDER BY nombre"
+SQL_PROVEEDORES = "SELECT id_proveedor AS id, nombre_proveedor AS nombre FROM proveedores ORDER BY nombre_proveedor"
+
+SQL_BUSCADOR = """
+    SELECT m.nombre, m.nombre_comercial AS comercial, m.precio_unitario AS precio,
+           m.requiere_receta, COALESCE(i.existencia, 0) AS existencia,
+           COALESCE(i.stock_minimo, m.stock_minimo) AS minimo
+    FROM medicamentos m
+    LEFT JOIN inventarios i ON i.id_medicamento = m.id_medicamento
+    ORDER BY m.nombre
+"""
 
 SQL_MIS_VENTAS = """
     SELECT v.id_venta, v.fecha_hora, v.total,
@@ -209,6 +227,16 @@ def _demo():
         "empleados": [
             {"nombre": "Carlos Pérez", "puesto": "Cajero", "correo": "operador.norte@yza.com", "rol": "Operador"},
             {"nombre": "Laura Méndez", "puesto": "Gerente", "correo": "gerente.norte@yza.com", "rol": "Gerente"},
+        ],
+        "inventario_completo": [
+            {"id": 4, "nombre": "Azitromicina 500 mg", "comercial": "Zitromax", "existencia": 5, "minimo": 8, "precio": "$145.00", "sucursal": "Norte"},
+            {"id": 1, "nombre": "Paracetamol 500 mg", "comercial": "Tempra", "existencia": 50, "minimo": 20, "precio": "$35.00", "sucursal": "Norte"},
+        ],
+        "categorias": [],
+        "proveedores": [],
+        "buscador": [
+            {"nombre": "Amoxicilina 500 mg", "comercial": "Amoxil", "precio": "$98.00", "receta": True, "existencia": 8, "minimo": 10},
+            {"nombre": "Paracetamol 500 mg", "comercial": "Tempra", "precio": "$35.00", "receta": False, "existencia": 50, "minimo": 20},
         ],
         "recetas": [],
         "nodos": [],
@@ -341,6 +369,54 @@ def _transformar_usuario(fila):
             "activo": bool(fila["activo"]),
             "sucursal": sucursales.get(_num(fila["id_sucursal"]), "—")}
 
+ORDEN_SUCURSAL = {"Norte": 0, "Centro": 1, "Sur": 2}
+
+
+def _cargar_inventario_completo(datos, nodos):
+    """Inventario completo (sin límite), marcando la sucursal de cada fila."""
+    filas_totales, respuesta = [], False
+    for nodo in nodos:
+        filas = _consultar(nodo, SQL_INVENTARIO_COMPLETO)
+        if filas is None:
+            continue
+        respuesta = True
+        for f in filas:
+            filas_totales.append({
+                "id": _num(f["id_medicamento"]), "nombre": f["nombre"],
+                "comercial": f["comercial"], "existencia": _num(f["existencia"]),
+                "minimo": _num(f["minimo"]), "precio": _money(f["precio"]),
+                "sucursal": nodo.nombre,
+            })
+    if respuesta:
+        filas_totales.sort(key=lambda x: (ORDEN_SUCURSAL.get(x["sucursal"], 9), x["nombre"]))
+        datos["inventario_completo"] = filas_totales
+
+
+def _cargar_catalogos_globales(datos, nodos):
+    """Categorías y proveedores (iguales en los 3 nodos): basta con un nodo."""
+    for nodo in nodos:
+        categorias = _consultar(nodo, SQL_CATEGORIAS)
+        proveedores = _consultar(nodo, SQL_PROVEEDORES)
+        if categorias is not None and proveedores is not None:
+            datos["categorias"] = [{"id": c["id"], "nombre": c["nombre"]} for c in categorias]
+            datos["proveedores"] = [{"id": p["id"], "nombre": p["nombre"]} for p in proveedores]
+            return
+
+def _cargar_buscador(datos, nodos):
+    """Catálogo completo con existencias, para la búsqueda de medicamentos."""
+    filas_totales, respuesta = [], False
+    for nodo in nodos:
+        filas = _consultar(nodo, SQL_BUSCADOR)
+        if filas is None:
+            continue
+        respuesta = True
+        filas_totales.extend({
+            "nombre": f["nombre"], "comercial": f["comercial"],
+            "precio": _money(f["precio"]), "receta": bool(f["requiere_receta"]),
+            "existencia": _num(f["existencia"]), "minimo": _num(f["minimo"]),
+        } for f in filas)
+    if respuesta:
+        datos["buscador"] = filas_totales
 
 def _cargar_nodos(datos):
     nodos = []
@@ -402,6 +478,11 @@ def obtener_datos(rol, sucursal, id_empleado=None):
                       50, orden=lambda x: x["nombre"], conservar_demo=conservar_demo)
         _cargar_lista(datos, nodos, SQL_USUARIOS, "usuarios", _transformar_usuario, 30,
                       conservar_demo=conservar_demo)
+        _cargar_inventario_completo(datos, nodos)
+        if rol == "Administrador":
+            _cargar_catalogos_globales(datos, nodos)
+        else:
+            _cargar_buscador(datos, nodos)
         if id_empleado:
             _cargar_lista(datos, nodos, SQL_MIS_VENTAS, "mis_ventas", _transformar_venta, 8,
                           conservar_demo=conservar_demo, params=(id_empleado,))

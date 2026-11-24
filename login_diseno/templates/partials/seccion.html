@@ -29,7 +29,124 @@
   {% endfor %}
 </div>
 
-{% elif seccion.slug in ['inventario', 'alertas', 'catalogo'] %}
+{% elif seccion.slug == 'inventario' %}
+<section class="panel">
+  <div class="panel-cab">
+    <div>
+      <h3>Inventario</h3>
+      <p>{% if u.rol == 'Administrador' %}Existencias de las 3 sucursales{% else %}Datos del nodo {{ u.sucursal }}{% endif %}</p>
+    </div>
+    {% if perfil.puede_crear_producto %}
+    <button type="button" class="btn-panel" data-abrir="modal-producto"><svg class="ico"><use href="#i-plus" /></svg> Nuevo producto</button>
+    {% else %}
+    <span class="panel-extra">{{ 'Gestión habilitada' if perfil.puede_inventario else 'Solo lectura' }}</span>
+    {% endif %}
+  </div>
+  <div class="buscador"><svg class="ico"><use href="#i-search" /></svg><input type="search" data-filtrar="#tabla-inventario" placeholder="Buscar en el inventario..." /></div>
+  <div class="tabla-wrap">
+    <table class="tabla" id="tabla-inventario">
+      <thead><tr>
+        {% if u.rol == 'Administrador' %}<th>Sucursal</th>{% endif %}
+        <th>Medicamento</th><th>Presentación</th><th>Existencias</th><th>Mínimo</th><th>Estado</th><th>Precio</th>
+        {% if perfil.puede_inventario %}<th>Agregar existencias</th>{% endif %}
+      </tr></thead>
+      <tbody>
+        {% for i in datos.inventario_completo %}
+        <tr data-nombre="{{ (i.nombre ~ ' ' ~ i.comercial ~ ' ' ~ i.sucursal)|lower }}">
+          {% if u.rol == 'Administrador' %}<td>{{ i.sucursal }}</td>{% endif %}
+          <td class="fuerte">{{ i.nombre }}</td><td>{{ i.comercial }}</td>
+          <td class="fuerte">{{ i.existencia }}</td><td>{{ i.minimo }}</td>
+          <td>{% if i.existencia <= i.minimo %}<span class="chip-critico">Bajo</span>{% else %}<span class="chip-libre">Normal</span>{% endif %}</td>
+          <td>{{ i.precio }}</td>
+          {% if perfil.puede_inventario %}
+          <td>
+            <form method="post" action="{{ url_for('agregar_stock') }}" class="form-stock">
+              <input type="hidden" name="sucursal" value="{{ i.sucursal }}" />
+              <input type="hidden" name="id_medicamento" value="{{ i.id }}" />
+              <input type="number" name="cantidad" min="1" max="100000" placeholder="Cant." aria-label="Cantidad a agregar de {{ i.comercial }}" required />
+              <button type="submit" class="mini-btn primario">Agregar</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% else %}<tr><td colspan="8" class="vacio">Sin datos de inventario.</td></tr>{% endfor %}
+        <tr class="sin-resultados" style="display:none"><td colspan="8" class="vacio">No se encontraron productos con ese texto.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if perfil.puede_crear_producto %}
+<div class="modal" id="modal-producto" role="dialog" aria-modal="true" aria-labelledby="mp-titulo">
+  <div class="modal-caja ancha">
+    <h2 id="mp-titulo">Nuevo producto</h2>
+    <p>Se agrega al catálogo de las 3 sucursales para que sea el mismo en toda la red.</p>
+    <form method="post" action="{{ url_for('nuevo_producto') }}" class="form-modal">
+      <div class="campo-doble">
+        <div class="campo"><label for="np-nombre">Medicamento</label><input id="np-nombre" name="nombre" type="text" placeholder="Paracetamol 500 mg" required /></div>
+        <div class="campo"><label for="np-comercial">Nombre comercial</label><input id="np-comercial" name="nombre_comercial" type="text" placeholder="Tempra" required /></div>
+      </div>
+      <div class="campo-doble">
+        <div class="campo"><label for="np-categoria">Categoría</label>
+          <select id="np-categoria" name="id_categoria" required>
+            <option value="">Selecciona…</option>
+            {% for c in datos.categorias %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}
+          </select></div>
+        <div class="campo"><label for="np-proveedor">Proveedor</label>
+          <select id="np-proveedor" name="id_proveedor" required>
+            <option value="">Selecciona…</option>
+            {% for pr in datos.proveedores %}<option value="{{ pr.id }}">{{ pr.nombre }}</option>{% endfor %}
+          </select></div>
+      </div>
+      <div class="campo-doble">
+        <div class="campo"><label for="np-precio">Precio unitario ($)</label><input id="np-precio" name="precio" type="number" step="0.01" min="0.01" placeholder="35.00" required /></div>
+        <div class="campo"><label for="np-minimo">Stock mínimo</label><input id="np-minimo" name="stock_minimo" type="number" min="0" value="10" required /></div>
+      </div>
+      <div class="campo-doble">
+        <div class="campo"><label for="np-existencia">Existencias iniciales</label><input id="np-existencia" name="existencia" type="number" min="0" value="0" required /></div>
+        <div class="campo"><label for="np-sucursal">Ingresan a la sucursal</label>
+          <select id="np-sucursal" name="sucursal">
+            {% for s in sucursales %}<option value="{{ s }}" {% if s == u.sucursal %}selected{% endif %}>{{ s }}</option>{% endfor %}
+          </select></div>
+      </div>
+      <label class="check-linea">
+        <input type="checkbox" name="requiere_receta" />
+        <span>Requiere receta médica <small>(márcala solo si se vende únicamente con receta)</small></span>
+      </label>
+      <div class="modal-acciones">
+        <button type="button" class="btn-cancelar" data-cerrar>Cancelar</button>
+        <button type="submit" class="btn-primario">Agregar producto</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% elif seccion.slug == 'catalogo' %}
+<section class="panel">
+  <div class="panel-cab">
+    <div><h3>Buscar medicamentos</h3><p>Catálogo y disponibilidad en {{ u.sucursal }}</p></div>
+    <span class="panel-extra">{{ datos.buscador|length }} productos</span>
+  </div>
+  <div class="buscador"><svg class="ico"><use href="#i-search" /></svg><input type="search" data-filtrar="#tabla-catalogo" placeholder="Buscar por nombre, marca o sustancia..." autofocus /></div>
+  <div class="tabla-wrap">
+    <table class="tabla" id="tabla-catalogo">
+      <thead><tr><th>Medicamento</th><th>Presentación</th><th>Precio</th><th>Existencias</th><th>Receta</th></tr></thead>
+      <tbody>
+        {% for p in datos.buscador %}
+        <tr data-nombre="{{ (p.nombre ~ ' ' ~ p.comercial)|lower }}">
+          <td class="fuerte">{{ p.nombre }}</td><td>{{ p.comercial }}</td><td>{{ p.precio }}</td>
+          <td>{% if p.existencia <= 0 %}<span class="chip-critico">Agotado</span>{% elif p.existencia <= p.minimo %}<span class="chip-critico">{{ p.existencia }} · Bajo</span>{% else %}<span class="chip-libre">{{ p.existencia }}</span>{% endif %}</td>
+          <td>{% if p.receta %}<span class="chip-receta">Requiere receta</span>{% else %}<span class="chip-libre">Libre venta</span>{% endif %}</td>
+        </tr>
+        {% else %}<tr><td colspan="5" class="vacio">No hay medicamentos en el catálogo.</td></tr>{% endfor %}
+        <tr class="sin-resultados" style="display:none"><td colspan="5" class="vacio">No se encontraron medicamentos con ese texto.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% elif seccion.slug == 'alertas' %}
 <section class="panel">
   <div class="panel-cab"><div><h3>{{ seccion.titulo }}</h3><p>Datos del nodo {{ u.sucursal }}</p></div><span class="panel-extra">Solo lectura</span></div>
   <div class="tabla-wrap">
@@ -57,7 +174,7 @@
       <thead><tr><th>Folio</th><th>Cliente</th><th>Total</th><th>Fecha</th></tr></thead>
       <tbody>
         {% for v in (datos.mis_ventas if seccion.slug == 'historial' else datos.ventas) %}
-        <tr><td class="mono">#{{ v.id }}</td><td>{{ v.cliente }}</td><td class="fuerte">{{ v.total }}</td><td>{{ v.fecha }}</td></tr>
+        <tr><td class="mono"><a class="enlace-ticket" href="{{ url_for('ver_ticket', id_venta=v.id) }}" title="Ver ticket">#{{ v.id }}</a></td><td>{{ v.cliente }}</td><td class="fuerte">{{ v.total }}</td><td>{{ v.fecha }}</td></tr>
         {% else %}<tr><td colspan="4" class="vacio">No hay ventas registradas.</td></tr>{% endfor %}
       </tbody>
     </table>
@@ -83,7 +200,7 @@
 <section class="panel">
   <div class="panel-cab">
     <div><h3>{{ seccion.titulo }}</h3><p>Puestos, roles y estado de acceso</p></div>
-    {% if perfil.puede_gestionar %}<span class="panel-extra">Gestión habilitada</span>{% endif %}
+    {% if perfil.puede_gestionar %}<button type="button" class="btn-panel" data-abrir="modal-usuario"><svg class="ico"><use href="#i-plus" /></svg> Nuevo usuario</button>{% endif %}
   </div>
   {% if perfil.puede_gestionar %}
   <div class="aviso-jerarquia">
@@ -135,6 +252,50 @@
     </table>
   </div>
 </section>
+
+{% if perfil.puede_gestionar %}
+<div class="modal" id="modal-usuario" role="dialog" aria-modal="true" aria-labelledby="mu-titulo">
+  <div class="modal-caja ancha">
+    <h2 id="mu-titulo">Nuevo usuario</h2>
+    <p>Crea el empleado, su rol y su acceso al sistema.</p>
+    <form method="post" action="{{ url_for('nuevo_usuario') }}" class="form-modal">
+      <div class="campo"><label for="nu-nombre">Nombre completo</label><input id="nu-nombre" name="nombre" type="text" required /></div>
+      <div class="campo-doble">
+        <div class="campo"><label for="nu-correo">Correo (opcional)</label><input id="nu-correo" name="correo" type="email" /></div>
+        <div class="campo"><label for="nu-puesto">Puesto</label>
+          <select id="nu-puesto" name="puesto" required>
+            {% for pu in puestos %}<option value="{{ pu }}">{{ pu }}</option>{% endfor %}
+          </select></div>
+      </div>
+      <div class="campo-doble">
+        <div class="campo"><label for="nu-rol">Rol en el sistema</label>
+          <select id="nu-rol" name="nombre_rol" required>
+            {% for rol in roles_asignables %}<option value="{{ rol }}">{{ rol }}</option>{% endfor %}
+          </select></div>
+        <div class="campo"><label for="nu-sucursal">Sucursal</label>
+          {% if u.rol == 'Administrador' %}
+          <select id="nu-sucursal" name="sucursal">
+            {% for s in sucursales %}<option value="{{ s }}" {% if s == u.sucursal %}selected{% endif %}>{{ s }}</option>{% endfor %}
+          </select>
+          {% else %}
+          <div class="campo-valor">{{ u.sucursal }}</div>
+          <input type="hidden" name="sucursal" value="{{ u.sucursal }}" />
+          {% endif %}
+        </div>
+      </div>
+      <div class="campo"><label for="nu-usuario">Usuario (mínimo 4 caracteres, sin espacios)</label><input id="nu-usuario" name="usuario" type="text" minlength="4" pattern="\S+" autocomplete="off" required /></div>
+      <div class="campo-doble">
+        <div class="campo"><label for="nu-clave">Contraseña (mínimo 8)</label><input id="nu-clave" name="clave" type="password" minlength="8" autocomplete="new-password" required /></div>
+        <div class="campo"><label for="nu-clave2">Repite la contraseña</label><input id="nu-clave2" name="clave2" type="password" minlength="8" autocomplete="new-password" required /></div>
+      </div>
+      <div class="modal-acciones">
+        <button type="button" class="btn-cancelar" data-cerrar>Cancelar</button>
+        <button type="submit" class="btn-primario">Crear usuario</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 {% elif seccion.slug in ['auditoria', 'movimientos'] %}
 <section class="panel">
@@ -199,4 +360,42 @@
 </div>
 {% endif %}
 
-{{ alertas(datos) if seccion.slug in ['alertas', 'inventario', 'reportes'] }}
+{{ alertas(datos) if seccion.slug in ['alertas', 'reportes'] }}
+{% if seccion.slug in ['inventario', 'catalogo', 'usuarios', 'empleados'] %}
+<script>
+  (function () {
+    // Ventanas emergentes: abrir con data-abrir, cerrar con data-cerrar, fondo o Escape
+    document.querySelectorAll('[data-abrir]').forEach(function (boton) {
+      boton.addEventListener('click', function () {
+        var ventana = document.getElementById(boton.dataset.abrir);
+        if (ventana) ventana.classList.add('visible');
+      });
+    });
+    document.querySelectorAll('.modal').forEach(function (ventana) {
+      ventana.addEventListener('click', function (e) {
+        if (e.target === ventana || e.target.hasAttribute('data-cerrar')) ventana.classList.remove('visible');
+      });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.querySelectorAll('.modal.visible').forEach(function (m) { m.classList.remove('visible'); });
+    });
+
+    // Barras de búsqueda: filtran las filas con data-nombre de la tabla indicada
+    document.querySelectorAll('input[data-filtrar]').forEach(function (campo) {
+      var tabla = document.querySelector(campo.dataset.filtrar);
+      if (!tabla) return;
+      campo.addEventListener('input', function () {
+        var texto = campo.value.trim().toLowerCase();
+        var visibles = 0;
+        tabla.querySelectorAll('tbody tr[data-nombre]').forEach(function (fila) {
+          var coincide = fila.dataset.nombre.indexOf(texto) !== -1;
+          fila.style.display = coincide ? '' : 'none';
+          if (coincide) visibles++;
+        });
+        var vacio = tabla.querySelector('.sin-resultados');
+        if (vacio) vacio.style.display = visibles === 0 ? '' : 'none';
+      });
+    });
+  })();
+</script>
+{% endif %}

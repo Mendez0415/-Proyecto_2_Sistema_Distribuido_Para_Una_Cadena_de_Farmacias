@@ -78,7 +78,7 @@
       <thead><tr><th>Folio</th><th>Cliente</th><th>Total</th><th>Fecha</th></tr></thead>
       <tbody>
         {% for v in datos.mis_ventas %}
-        <tr><td class="mono">#{{ v.id }}</td><td>{{ v.cliente }}</td><td class="fuerte">{{ v.total }}</td><td>{{ v.fecha }}</td></tr>
+        <tr><td class="mono"><a class="enlace-ticket" href="{{ url_for('ver_ticket', id_venta=v.id) }}" title="Ver ticket">#{{ v.id }}</a></td><td>{{ v.cliente }}</td><td class="fuerte">{{ v.total }}</td><td>{{ v.fecha }}</td></tr>
         {% else %}<tr><td colspan="4" class="vacio">Todavía no has registrado ventas.</td></tr>{% endfor %}
       </tbody>
     </table>
@@ -93,7 +93,7 @@
       <thead><tr><th>Folio</th><th>Cliente</th><th>Total</th><th>Fecha</th></tr></thead>
       <tbody>
         {% for v in datos.ventas %}
-        <tr><td class="mono">#{{ v.id }}</td><td>{{ v.cliente }}</td><td class="fuerte">{{ v.total }}</td><td>{{ v.fecha }}</td></tr>
+        <tr><td class="mono"><a class="enlace-ticket" href="{{ url_for('ver_ticket', id_venta=v.id) }}" title="Ver ticket">#{{ v.id }}</a></td><td>{{ v.cliente }}</td><td class="fuerte">{{ v.total }}</td><td>{{ v.fecha }}</td></tr>
         {% else %}<tr><td colspan="4" class="vacio">No hay ventas registradas.</td></tr>{% endfor %}
       </tbody>
     </table>

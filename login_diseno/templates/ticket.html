@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ticket #{{ v.id_venta }} · Farmacia Yza</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 28px 16px; min-height: 100vh;
+        background: #eaf7f4; color: #0d2b2e;
+        font-family: "Poppins", system-ui, "Segoe UI", Roboto, sans-serif;
+      }
+      .aviso-venta {
+        max-width: 340px; margin: 0 auto 16px; padding: 11px 14px;
+        border-radius: 12px; border: 1px solid #a9e6d5;
+        background: #dff7ee; color: #0a5f4c; font-size: .8rem; font-weight: 600; text-align: center;
+      }
+      .ticket {
+        max-width: 340px; margin: 0 auto; padding: 22px 20px 20px;
+        background: #fff; border-radius: 6px;
+        box-shadow: 0 16px 40px rgba(13, 43, 46, .14);
+        font-family: ui-monospace, "SFMono-Regular", Consolas, "Courier New", monospace;
+        font-size: .8rem; line-height: 1.5;
+      }
+      .centro { text-align: center; }
+      .marca { margin: 0; font-size: 1.25rem; font-weight: 700; letter-spacing: 1px; }
+      .chico { font-size: .72rem; color: #55706f; }
+      .corte { margin: 12px 0; border: 0; border-top: 2px dashed #b8cdca; }
+      .dato { display: flex; justify-content: space-between; gap: 10px; }
+      .dato span:first-child { color: #55706f; }
+      .linea { margin-bottom: 9px; }
+      .linea .nombre { font-weight: 700; }
+      .linea .detalle { display: flex; justify-content: space-between; gap: 10px; }
+      .total { display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: 700; }
+      .gracias { margin: 14px 0 0; text-align: center; font-size: .74rem; }
+      .acciones-ticket { display: flex; gap: 10px; max-width: 340px; margin: 18px auto 0; }
+      .acciones-ticket a, .acciones-ticket button {
+        flex: 1; padding: 11px 12px; border-radius: 12px; border: 1px solid #d3e6e2;
+        background: #fff; color: #0d2b2e; text-align: center; text-decoration: none; cursor: pointer;
+        font: inherit; font-size: .8rem; font-weight: 600;
+      }
+      .acciones-ticket .principal {
+        border-color: rgba(255,255,255,.3); color: #fff;
+        background: linear-gradient(180deg, #25d6b6, #0e9c92);
+      }
+      @page { size: 80mm auto; margin: 4mm; }
+      @media print {
+        body { padding: 0; background: #fff; min-height: 0; }
+        .ticket { max-width: none; box-shadow: none; padding: 0; border-radius: 0; }
+        .no-imprimir { display: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    {% if nueva %}<div class="aviso-venta no-imprimir">Venta registrada. Existencias actualizadas.</div>{% endif %}
+
+    <article class="ticket">
+      <div class="centro">
+        <h1 class="marca">FARMACIA YZA</h1>
+        <div class="chico">Sucursal {{ v.sucursal }}</div>
+        <div class="chico">{{ v.direccion }}{% if v.ciudad %}, {{ v.ciudad }}{% endif %}</div>
+        {% if v.telefono %}<div class="chico">Tel. {{ v.telefono }}</div>{% endif %}
+      </div>
+
+      <hr class="corte" />
+      <div class="dato"><span>Folio</span><strong>#{{ v.id_venta }}</strong></div>
+      <div class="dato"><span>Fecha</span><span>{{ v.fecha_hora.strftime('%d/%m/%Y %H:%M') }}</span></div>
+      <div class="dato"><span>Atendió</span><span>{{ v.cajero }}</span></div>
+      <div class="dato"><span>Cliente</span><span>{{ v.cliente }}</span></div>
+      <hr class="corte" />
+
+      {% for l in lineas %}
+      <div class="linea">
+        <div class="nombre">{{ l.comercial }}</div>
+        <div class="chico">{{ l.nombre }}</div>
+        <div class="detalle"><span>{{ l.cantidad }} x {{ l.precio|money }}</span><span>{{ l.subtotal|money }}</span></div>
+      </div>
+      {% endfor %}
+
+      <hr class="corte" />
+      <div class="dato"><span>Piezas</span><span>{{ piezas }}</span></div>
+      <div class="total"><span>TOTAL</span><span>{{ v.total|money }}</span></div>
+      <hr class="corte" />
+      <p class="gracias">¡Gracias por su compra!<br />Conserve este ticket para cualquier aclaración.</p>
+    </article>
+
+    <div class="acciones-ticket no-imprimir">
+      <button type="button" class="principal" onclick="window.print()">Imprimir ticket</button>
+      <a href="{{ volver }}">{{ 'Nueva venta' if nueva else 'Volver' }}</a>
+    </div>
+  </body>
+</html>

@@ -8,7 +8,13 @@ Cada perfil define:
 """
 
 # Jerarquía de roles: un usuario solo puede gestionar a otro de menor rango.
-JERARQUIA = {"Consulta": 0, "Auditor": 0, "Operador": 0, "Gerente": 1, "Administrador": 2}
+JERARQUIA = {
+    "Consulta": 0,
+    "Auditor": 0,
+    "Operador": 0,
+    "Gerente": 1,
+    "Administrador": 2,
+}
 TODOS_LOS_ROLES = ["Administrador", "Gerente", "Operador", "Auditor", "Consulta"]
 
 
@@ -34,18 +40,20 @@ PERFILES = {
         "aviso": "Tienes visibilidad de los 3 nodos y de la configuración del sistema.",
         "puede_gestionar": True,
         "puede_vender": False,
+        "puede_inventario": True,
+        "puede_crear_producto": True,
         "menu": [
             ("resumen", "Resumen general", "grid"),
             ("red", "Red y sucursales", "store"),
             ("inventario", "Inventario", "pill"),
             ("ventas", "Ventas", "chart"),
             ("usuarios", "Usuarios y roles", "users"),
-            ("auditoria", "Auditoría", "shield"),
+            # ("auditoria", "Auditoría", "shield"),
             ("configuracion", "Configuración", "settings"),
         ],
         "acciones": [
             ("Ver nodos", "red", "store"),
-            ("Auditoría", "auditoria", "shield"),
+            # ("Auditoría", "auditoria", "shield"),
             ("Usuarios", "usuarios", "users"),
         ],
     },
@@ -58,6 +66,8 @@ PERFILES = {
         "aviso": "Tu información se limita al nodo de tu sucursal. Puedes gestionar roles de menor rango y registrar ventas.",
         "puede_gestionar": True,
         "puede_vender": True,
+        "puede_inventario": True,
+        "puede_crear_producto": False,
         "menu": [
             ("resumen", "Resumen", "grid"),
             ("ventas", "Ventas", "chart"),
@@ -133,12 +143,12 @@ PERFILES = {
             ("inventario", "Consultar inventario", "pill"),
             ("recetas", "Recetas", "receipt"),
             ("clientes", "Clientes", "users"),
-            ("ayuda", "Ayuda", "shield"),
+            # ("ayuda", "Ayuda", "shield"),
         ],
         "acciones": [
             ("Buscar medicamento", "resumen", "search"),
             ("Ver inventario", "inventario", "pill"),
-            ("Ayuda", "ayuda", "shield"),
+            # ("Ayuda", "ayuda", "shield"),
         ],
     },
 }
@@ -149,14 +159,20 @@ SECCIONES = {
     "inventario": ("Inventario", "Existencias, mínimos y alertas de la sucursal."),
     "ventas": ("Ventas", "Registro y consulta de ventas de la sucursal."),
     "usuarios": ("Usuarios y roles", "Cuentas, puestos y Roles asignados en la red."),
-    "auditoria": ("Auditoría", "Registro de altas, cambios y bajas en la base de datos."),
+    "auditoria": (
+        "Auditoría",
+        "Registro de altas, cambios y bajas en la base de datos.",
+    ),
     "configuracion": ("Configuración", "Parámetros generales del sistema distribuido."),
     "clientes": ("Clientes", "Clientes registrados en la sucursal."),
     "empleados": ("Empleados", "Personal de la sucursal y su puesto."),
     "recetas": ("Recetas", "Recetas registradas y su vigencia."),
     "reportes": ("Reportes", "Indicadores y exportación de información."),
     "catalogo": ("Buscar medicamentos", "Catálogo de medicamentos disponibles."),
-    "movimientos": ("Movimientos", "Historial de movimientos registrados por auditoría."),
+    "movimientos": (
+        "Movimientos",
+        "Historial de movimientos registrados por auditoría.",
+    ),
     "alertas": ("Alertas de stock", "Productos con existencias en o bajo el mínimo."),
     "historial": ("Mis compras", "Ventas registradas desde tu puesto de trabajo."),
     "ayuda": ("Ayuda", "Guía rápida de uso del sistema."),
